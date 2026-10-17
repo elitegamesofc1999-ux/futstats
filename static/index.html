@@ -17,7 +17,14 @@
   button.ghost{background:transparent;border:1px solid var(--line);color:var(--txt)}
   button:disabled{opacity:.5;cursor:default}
   main{max-width:1200px;margin:0 auto;padding:16px;display:grid;grid-template-columns:380px 1fr;gap:16px}
-  @media(max-width:900px){main{grid-template-columns:1fr}}
+  @media(max-width:900px){
+    main{grid-template-columns:1fr}
+    body.detail-open #listSec{display:none}
+    body:not(.detail-open) #detail{display:none}
+    header h1 small{display:none}
+  }
+  .back{display:none;margin-bottom:10px}
+  @media(max-width:900px){.back{display:inline-flex;align-items:center;gap:6px}}
   .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
   .chip{font-size:12px;padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--mut);cursor:pointer}
   .chip.on{border-color:var(--acc);color:var(--txt);background:#14281d}
@@ -97,7 +104,7 @@
   <input type="date" id="dateInp" style="background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px">
 </header>
 <main>
-  <section>
+  <section id="listSec">
     <div class="mode"><button class="on" id="modeGames">📅 Jogos do dia</button><button id="modeMk">🎯 Filtrar por mercado</button></div>
     <div class="filters" id="filters"></div>
     <div class="mk" id="mkBox" style="display:none">
@@ -149,7 +156,8 @@ function renderList(){
 
 async function openMatch(id){
   state.sel=id; renderList();
-  $('#detail').innerHTML='<div class="loading">⏳ Buscando os últimos 10 jogos de cada time na ESPN… (na 1ª vez leva uns 10 s)</div>';
+  document.body.classList.add('detail-open'); window.scrollTo({top:0});
+  $('#detail').innerHTML='<div class="loading">⏳ Buscando os últimos 10 jogos de cada time na ESPN… (na 1ª vez leva uns 10 s)</div>'.replace('<div class="loading">','<button class="ghost back" onclick="closeMatch()">← Voltar aos jogos</button><div class="loading">');
   const m=await (await fetch(`/api/match/${id}?venue=${state.venue}`)).json();
   renderMatch(m); loadStatus();
 }
@@ -160,12 +168,14 @@ function insights(side,name){
   return out.slice(0,8);
 }
 
+function closeMatch(){document.body.classList.remove('detail-open');window.scrollTo({top:0});}
 function renderMatch(m){
   const f=m.fixture,H=m.home,A=m.away;
+  document.body.classList.add('detail-open'); window.scrollTo({top:0});
   const warn=(H.n<m.history_n||A.n<m.history_n)?`<div class="note">ℹ️ Histórico disponível: <b>${f.home_name}</b> ${H.n} jogos · <b>${f.away_name}</b> ${A.n} jogos (início de temporada ou time sem cobertura completa na ESPN).</div>`:'';
   const noData=H.n===0&&A.n===0;
   const venueTag=m.venue?`<div class="note" style="background:#0f1f3a;border-color:#1e3a6b;color:#bfdbfe">🏠 ${f.home_name}: só os últimos ${H.n} jogos <b>em casa</b> · ✈️ ${f.away_name}: só os últimos ${A.n} jogos <b>fora</b></div>`:'';
-  let html=`<div class="card vs">
+  let html=`<button class="ghost back" onclick="closeMatch()">← Voltar aos jogos</button><div class="card vs">
      <div><img src="${f.home_logo}"><h2>${f.home_name}</h2><small style="color:var(--mut)">mandante</small></div>
      <div class="mid">${f.league_name}<b>${f.status==='FT'?f.home_goals+' - '+f.away_goals:hhmm(f.date)}</b>${new Date(f.date).toLocaleDateString('pt-BR')}</div>
      <div><img src="${f.away_logo}"><h2>${f.away_name}</h2><small style="color:var(--mut)">visitante</small></div>
@@ -278,5 +288,5 @@ $('#dateInp').value=new Date().toLocaleDateString('sv-SE');
 $('#dateInp').onchange=()=>{state.screener=null;loadToday().then(()=>{if(state.mode==='mk')loadScreener()})};
 loadStatus().then(loadToday);
 </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4bde187fbb700dc',t:'MTc5MjIyNTE5NA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
