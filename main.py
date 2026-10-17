@@ -31,7 +31,7 @@ def status():
     with E.db() as con:
         total = con.execute("SELECT COUNT(*) c FROM fixtures WHERE stats_json IS NOT NULL").fetchone()["c"]
     return dict(source="ESPN", games_with_stats=total,
-                leagues=[dict(id=k, name=v[0], flag=v[1]) for k, v in E.LEAGUES.items()])
+                leagues=[dict(id=k, name=v[0], flag=v[1], group=v[2], default=v[3]) for k, v in E.LEAGUES.items()])
 
 
 @app.get("/api/today")
@@ -87,17 +87,18 @@ def _fixture_markets(f, venue=0):
 
 
 @app.get("/api/screener")
-def screener(d: str | None = None, venue: int = 0):
+def screener(d: str | None = None, venue: int = 0, leagues: str | None = None):
     """Para TODOS os jogos do dia, calcula quantas vezes cada mercado bateu nos últimos 10 de cada time.
     venue=1 -> mandante só jogos em casa, visitante só jogos fora."""
     d = d or date.today().isoformat()
-    ck = (d, venue)
+    sel = set(leagues.split(",")) if leagues else set(E.DEFAULT_LEAGUES)
+    ck = (d, venue, tuple(sorted(sel)))
     c = _screener_cache.get(ck)
     if c and time.time() - c[0] < 900:
         return c[1]
-    rows = E.fixtures_by_date(d)
+    rows = [r for r in E.fixtures_by_date(d) if r["league_id"] in sel]
     with ThreadPoolExecutor(6) as ex:
         res = list(ex.map(lambda f: _fixture_markets(f, venue), rows))
-    out = dict(date=d, venue=bool(venue), markets=all_markets(), fixtures=res)
+    out = dict(date=d, venue=bool(venue), leagues=sorted(sel), markets=all_markets(), fixtures=res)
     _screener_cache[ck] = (time.time(), out)
     return out

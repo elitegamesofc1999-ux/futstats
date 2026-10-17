@@ -16,33 +16,83 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "data", "espn.db")
 TZ_OFFSET = int(os.environ.get("TZ_OFFSET_HOURS", "-3"))  # Fortaleza = UTC-3
 LOCAL_TZ = timezone(timedelta(hours=TZ_OFFSET))
 
+# (nome, bandeira, grupo, ativa por padrão no filtro de mercado)
 LEAGUES = {
-    "eng.1": ("Premier League", "🏴󠁧󠁢󠁥󠁮󠁧󠁿"),
-    "esp.1": ("La Liga", "🇪🇸"),
-    "ita.1": ("Serie A", "🇮🇹"),
-    "ger.1": ("Bundesliga", "🇩🇪"),
-    "fra.1": ("Ligue 1", "🇫🇷"),
-    "uefa.champions": ("Champions League", "🏆"),
-    "uefa.europa": ("Europa League", "🏆"),
-    "bra.1": ("Brasileirão", "🇧🇷"),
+    # Principais
+    "eng.1": ("Premier League", "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "Principais", True),
+    "esp.1": ("La Liga", "🇪🇸", "Principais", True),
+    "ita.1": ("Serie A", "🇮🇹", "Principais", True),
+    "ger.1": ("Bundesliga", "🇩🇪", "Principais", True),
+    "fra.1": ("Ligue 1", "🇫🇷", "Principais", True),
+    "bra.1": ("Brasileirão", "🇧🇷", "Principais", True),
+    # Continentais
+    "uefa.champions": ("Champions League", "🏆", "Continentais", True),
+    "uefa.europa": ("Europa League", "🏆", "Continentais", True),
+    "uefa.europa.conf": ("Conference League", "🏆", "Continentais", False),
+    "conmebol.libertadores": ("Libertadores", "🏆", "Continentais", True),
+    "conmebol.sudamericana": ("Sul-Americana", "🏆", "Continentais", False),
+    # Europa 2º escalão
+    "ned.1": ("Eredivisie", "🇳🇱", "Europa", True),
+    "por.1": ("Liga Portugal", "🇵🇹", "Europa", True),
+    "eng.2": ("Championship", "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "Europa", True),
+    "bel.1": ("Pro League Bélgica", "🇧🇪", "Europa", False),
+    "tur.1": ("Süper Lig Turquia", "🇹🇷", "Europa", False),
+    "sco.1": ("Premiership Escócia", "🏴󠁧󠁢󠁳󠁣󠁴󠁿", "Europa", False),
+    "aut.1": ("Bundesliga Áustria", "🇦🇹", "Europa", False),
+    "gre.1": ("Super League Grécia", "🇬🇷", "Europa", False),
+    "rus.1": ("Premier League Rússia", "🇷🇺", "Europa", False),
+    # Nórdicos
+    "swe.1": ("Allsvenskan Suécia", "🇸🇪", "Nórdicos", False),
+    "nor.1": ("Eliteserien Noruega", "🇳🇴", "Nórdicos", False),
+    "den.1": ("Superliga Dinamarca", "🇩🇰", "Nórdicos", False),
+    "fin.1": ("Veikkausliiga Finlândia", "🇫🇮", "Nórdicos", False),
+    "sui.1": ("Super League Suíça", "🇨🇭", "Europa", False),
+    # Segundas divisões
+    "bra.2": ("Série B", "🇧🇷", "2ª divisão", False),
+    "ger.2": ("2. Bundesliga", "🇩🇪", "2ª divisão", False),
+    "esp.2": ("La Liga 2", "🇪🇸", "2ª divisão", False),
+    "ita.2": ("Serie B Itália", "🇮🇹", "2ª divisão", False),
+    "fra.2": ("Ligue 2", "🇫🇷", "2ª divisão", False),
+    "eng.3": ("League One", "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "2ª divisão", False),
+    # Américas / outros
+    "arg.1": ("Liga Argentina", "🇦🇷", "Américas", False),
+    "mex.1": ("Liga MX", "🇲🇽", "Américas", False),
+    "usa.1": ("MLS", "🇺🇸", "Américas", False),
+    "jpn.1": ("J-League", "🇯🇵", "Outros", False),
+    "ksa.1": ("Saudi Pro League", "🇸🇦", "Outros", False),
 }
-# competições extras consultadas para cada time (além da liga dele)
-EXTRA_COMPETITIONS = {
-    "eng.1": ["uefa.champions", "uefa.europa", "uefa.europa.conf", "eng.fa", "eng.league_cup"],
-    "esp.1": ["uefa.champions", "uefa.europa", "uefa.europa.conf", "esp.copa_del_rey"],
-    "ita.1": ["uefa.champions", "uefa.europa", "uefa.europa.conf", "ita.coppa_italia"],
-    "ger.1": ["uefa.champions", "uefa.europa", "uefa.europa.conf", "ger.dfb_pokal"],
-    "fra.1": ["uefa.champions", "uefa.europa", "uefa.europa.conf", "fra.coupe_de_france"],
-    "uefa.champions": ["eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "por.1", "ned.1"],
-    "uefa.europa": ["eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "por.1", "ned.1"],
-    "bra.1": ["bra.copa_do_brasil", "conmebol.libertadores", "conmebol.sudamericana"],
+DEFAULT_LEAGUES = [k for k, v in LEAGUES.items() if v[3]]
+EURO_CUPS = ["uefa.champions", "uefa.europa", "uefa.europa.conf"]
+CONMEBOL = ["conmebol.libertadores", "conmebol.sudamericana"]
+DOMESTIC_CUPS = {
+    "eng.1": ["eng.fa", "eng.league_cup"], "eng.2": ["eng.fa", "eng.league_cup"], "eng.3": ["eng.fa", "eng.league_cup"],
+    "esp.1": ["esp.copa_del_rey"], "esp.2": ["esp.copa_del_rey"], "ita.1": ["ita.coppa_italia"], "ita.2": ["ita.coppa_italia"],
+    "ger.1": ["ger.dfb_pokal"], "ger.2": ["ger.dfb_pokal"], "fra.1": ["fra.coupe_de_france"], "fra.2": ["fra.coupe_de_france"],
+    "bra.1": ["bra.copa_do_brasil"], "bra.2": ["bra.copa_do_brasil"], "ned.1": ["ned.cup"], "por.1": ["por.taca"],
 }
+_BIG5 = ["eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "por.1", "ned.1", "bel.1", "tur.1", "sco.1", "aut.1"]
+
+
+def extras_for(league_id):
+    """Competições extras para buscar o histórico de um time dessa liga."""
+    if league_id in EURO_CUPS:
+        return _BIG5
+    if league_id in CONMEBOL:
+        return ["bra.1", "arg.1", "mex.1"]
+    if league_id.startswith(("bra", "arg")):
+        return DOMESTIC_CUPS.get(league_id, []) + CONMEBOL
+    if league_id in ("mex.1", "usa.1"):
+        return ["concacaf.champions", "usa.open"] if league_id == "usa.1" else ["concacaf.champions"]
+    if league_id in ("jpn.1", "ksa.1"):
+        return ["afc.champions"]
+    return DOMESTIC_CUPS.get(league_id, []) + EURO_CUPS
+
+
 CUP_NAMES = {
-    "uefa.europa.conf": "Conference League", "eng.fa": "FA Cup", "eng.league_cup": "Copa da Liga",
-    "esp.copa_del_rey": "Copa del Rey", "ita.coppa_italia": "Coppa Italia", "ger.dfb_pokal": "DFB Pokal",
-    "fra.coupe_de_france": "Coupe de France", "bra.copa_do_brasil": "Copa do Brasil",
-    "conmebol.libertadores": "Libertadores", "conmebol.sudamericana": "Sul-Americana",
-    "por.1": "Liga Portugal", "ned.1": "Eredivisie",
+    "eng.fa": "FA Cup", "eng.league_cup": "Copa da Liga", "esp.copa_del_rey": "Copa del Rey",
+    "ita.coppa_italia": "Coppa Italia", "ger.dfb_pokal": "DFB Pokal", "fra.coupe_de_france": "Coupe de France",
+    "bra.copa_do_brasil": "Copa do Brasil", "ned.cup": "KNVB Beker", "por.taca": "Taça de Portugal",
+    "concacaf.champions": "Concachampions", "usa.open": "US Open Cup", "afc.champions": "AFC Champions",
 }
 
 STAT_MAP = {  # nome ESPN -> nome usado em analysis.py
@@ -129,7 +179,7 @@ def _event_row(e, league_id):
 
     return dict(
         id=int(e["id"]), date=local.isoformat(), ts=int(dt.timestamp()),
-        league_id=league_id, league_name=LEAGUES.get(league_id, (CUP_NAMES.get(league_id, league_id),))[0],
+        league_id=league_id, league_name=(LEAGUES[league_id][0] if league_id in LEAGUES else CUP_NAMES.get(league_id, league_id)),
         home_id=int(home["team"]["id"]), home_name=home["team"]["displayName"], home_logo=logo(home),
         away_id=int(away["team"]["id"]), away_name=away["team"]["displayName"], away_logo=logo(away),
         home_goals=score(home), away_goals=score(away), status=status,
@@ -154,7 +204,7 @@ def upsert_fixture(row):
 def fixtures_by_date(d: str, leagues=None):
     """d = 'YYYY-MM-DD' (horário local). Consulta o dia e o seguinte em UTC e filtra."""
     leagues = leagues or list(LEAGUES)
-    key = f"day:{d}:{','.join(leagues)}"
+    key = f"day:{d}:{len(leagues)}:{hash(tuple(leagues)) & 0xffffff}"
     cached = cache_get(key, 600)
     if cached is not None:
         return cached
@@ -186,7 +236,7 @@ def fixtures_by_date(d: str, leagues=None):
 # ------------------------------------------------- histórico do time
 def _season_year(league_id):
     today = datetime.now(LOCAL_TZ)
-    if league_id.startswith(("bra", "conmebol")):
+    if league_id.startswith(("bra", "conmebol", "arg", "swe", "nor", "fin", "usa", "jpn", "mex")):
         return today.year
     return today.year if today.month >= 7 else today.year - 1
 
@@ -207,7 +257,7 @@ def _sched(team_id, lg, season=None):
 
 def team_schedule(team_id, league_id, n=10):
     """Últimos jogos finalizados do time: liga + copas/continentais; se faltar, temporada anterior."""
-    comps = [league_id] + [c for c in EXTRA_COMPETITIONS.get(league_id, []) if c != league_id]
+    comps = [league_id] + [c for c in extras_for(league_id) if c != league_id]
     events = {}
     with ThreadPoolExecutor(6) as ex:
         for lst in ex.map(lambda lg: _sched(team_id, lg), comps):
