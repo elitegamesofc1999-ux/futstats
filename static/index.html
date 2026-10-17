@@ -28,7 +28,15 @@
   .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
   .chip{font-size:12px;padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--mut);cursor:pointer}
   .chip.on{border-color:var(--acc);color:var(--txt);background:#14281d}
-  .league{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.8px}
+  .lg{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;user-select:none}
+  .lg:hover{border-color:var(--acc2)}
+  .lg .n{margin-left:auto;font-size:12px;color:var(--mut);font-weight:400}
+  .lg .arr{color:var(--mut);transition:.2s}
+  .lg.open{border-color:var(--acc2);border-radius:12px 12px 0 0;margin-bottom:0}
+  .lg.open .arr{transform:rotate(90deg)}
+  .lgbody{border:1px solid var(--acc2);border-top:0;border-radius:0 0 12px 12px;padding:8px;margin-bottom:8px;background:#0e1420}
+  .lgbody .fx:last-child{margin-bottom:0}
+  .thr{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--mut)}
   .fx{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer;display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;transition:.15s}
   .fx:hover,.fx.sel{border-color:var(--acc2);background:var(--card2)}
   .fx .time{font-weight:700;font-size:14px}
@@ -106,10 +114,13 @@
 <main>
   <section id="listSec">
     <div class="mode"><button class="on" id="modeGames">📅 Jogos do dia</button><button id="modeMk">🎯 Filtrar por mercado</button></div>
-    <div class="filters" id="filters"></div>
+    <div class="filters" id="filters" style="display:none"></div>
     <div class="mk" id="mkBox" style="display:none">
       <select id="mkSel"></select>
-      <small style="color:var(--mut)">Ranking dos jogos de hoje por quantas vezes o mercado bateu nos últimos 10 jogos de cada time.</small>
+      <div class="thr">Mostrar jogos com tendência
+        <select id="thrSel"><option value="0">todos</option><option value="60">≥ 60%</option><option value="70" selected>≥ 70%</option><option value="80">≥ 80%</option><option value="90">≥ 90%</option></select>
+        <span id="thrInfo"></span></div>
+      <small style="color:var(--mut)">% = quantas vezes o mercado bateu nos últimos 10 jogos de cada time (soma dos dois).</small>
     </div>
     <div id="list"><div class="loading">Carregando jogos…</div></div>
   </section>
@@ -117,7 +128,7 @@
 </main>
 <script>
 const $=s=>document.querySelector(s);
-let state={fixtures:[],leagues:[],active:new Set(),sel:null,status:null,mode:'games',screener:null,market:'gols_over_2_5_gols_no_jogo',loadingScr:false,venue:0};
+let state={fixtures:[],leagues:[],active:new Set(),sel:null,status:null,mode:'games',screener:null,market:'gols_over_2_5_gols_no_jogo',loadingScr:false,venue:0,open:new Set(),thr:70};
 const fmt=n=>n==null?'–':(Number.isInteger(n)?n:(+n).toFixed(1));
 const hhmm=iso=>new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 const pctCls=p=>p>=70?'hi':p>=50?'mid':'lo';
@@ -138,19 +149,28 @@ async function loadToday(){
 }
 function renderList(){
   if(state.mode==='mk'){renderRank();return}
-  const fx=state.fixtures.filter(f=>state.active.has(f.league_id));
-  if(!fx.length){$('#list').innerHTML='<div class="empty">Nenhum jogo das ligas selecionadas nesse dia.</div>';return}
-  let html='',last=null;
-  for(const f of fx){
-    if(f.league_name!==last){html+=`<div class="league">${f.league_flag} ${f.league_name}</div>`;last=f.league_name}
-    const fin=f.status==='FT', live=f.status==='LIVE';
-    html+=`<div class="fx ${state.sel===f.id?'sel':''}" data-id="${f.id}">
-      <div class="time">${fin?'<span class="score">'+f.home_goals+'-'+f.away_goals+'</span>':hhmm(f.date)}<small>${fin?'Encerrado':live?'🔴 ao vivo':''}</small></div>
-      <div><div class="team"><img src="${f.home_logo}">${f.home_name}</div><div class="team"><img src="${f.away_logo}">${f.away_name}</div></div>
-      <div class="cov">${f.league_flag}<br><span style="font-size:10px">${f.status_detail||''}</span></div>
-    </div>`;
+  const fx=state.fixtures;
+  if(!fx.length){$('#list').innerHTML='<div class="empty">Nenhum jogo das ligas acompanhadas nesse dia.</div>';return}
+  const groups={};
+  for(const f of fx){(groups[f.league_id]=groups[f.league_id]||{name:f.league_name,flag:f.league_flag,items:[]}).items.push(f)}
+  let html='';
+  for(const [lid,g] of Object.entries(groups)){
+    const open=state.open.has(lid);
+    html+=`<div class="lg ${open?'open':''}" data-lg="${lid}"><span class="arr">▶</span>${g.flag} ${g.name}<span class="n">${g.items.length} jogo${g.items.length>1?'s':''}</span></div>`;
+    if(!open) continue;
+    html+='<div class="lgbody">';
+    for(const f of g.items){
+      const fin=f.status==='FT', live=f.status==='LIVE';
+      html+=`<div class="fx ${state.sel===f.id?'sel':''}" data-id="${f.id}">
+        <div class="time">${fin?'<span class="score">'+f.home_goals+'-'+f.away_goals+'</span>':hhmm(f.date)}<small>${fin?'Encerrado':live?'🔴 ao vivo':''}</small></div>
+        <div><div class="team"><img src="${f.home_logo}">${f.home_name}</div><div class="team"><img src="${f.away_logo}">${f.away_name}</div></div>
+        <div class="cov"><span style="font-size:10px">${f.status_detail||''}</span></div>
+      </div>`;
+    }
+    html+='</div>';
   }
   $('#list').innerHTML=html;
+  $('#list').querySelectorAll('.lg').forEach(e=>e.onclick=()=>{const id=e.dataset.lg;state.open.has(id)?state.open.delete(id):state.open.add(id);renderList();});
   $('#list').querySelectorAll('.fx').forEach(e=>e.onclick=()=>openMatch(+e.dataset.id));
 }
 
@@ -242,6 +262,7 @@ async function loadMarkets(){
   const mk=await (await fetch('/api/markets')).json();
   $('#mkSel').innerHTML=mk.map(g=>`<optgroup label="${g.group}">${g.items.map(i=>`<option value="${i.id}" ${i.id===state.market?'selected':''}>${g.group} — ${i.label}</option>`).join('')}</optgroup>`).join('');
   $('#mkSel').onchange=e=>{state.market=e.target.value;renderRank()};
+  $('#thrSel').onchange=e=>{state.thr=+e.target.value;renderRank()};
 }
 async function loadScreener(){
   const d=$('#dateInp').value;
@@ -258,7 +279,10 @@ function renderRank(){
   const small=k=>k.home_n<5||k.away_n<5;               // amostra pequena -> vai pro fim
   const key=k=>(small(k)?-1000:0)+k.pct*10+(k.home_hits+k.away_hits);
   fx.sort((a,b)=>key(b.markets[m])-key(a.markets[m]));
-  if(!fx.length){$('#list').innerHTML='<div class="empty">Sem jogos para esse filtro.</div>';return}
+  const total=fx.length;
+  fx=fx.filter(f=>f.markets[m].pct>=state.thr&&!small(f.markets[m]));
+  $('#thrInfo').textContent=`· ${fx.length} de ${total} jogos`;
+  if(!fx.length){$('#list').innerHTML=`<div class="empty">Nenhum jogo de hoje bateu esse mercado em ≥ ${state.thr}% dos últimos 10.<br><br><small>Diminua o % acima ou escolha outro mercado.</small></div>`;return}
   const isTeam=/time_/.test(m);
   $('#list').innerHTML=fx.map((f,i)=>{const k=f.markets[m];
     return `<div class="rk ${state.sel===f.id?'sel':''}" data-id="${f.id}">
@@ -273,6 +297,7 @@ function setMode(mode){
   state.mode=mode;
   $('#modeGames').classList.toggle('on',mode==='games');$('#modeMk').classList.toggle('on',mode==='mk');
   $('#mkBox').style.display=mode==='mk'?'':'none';
+  $('#filters').style.display=mode==='mk'?'':'none';
   if(mode==='mk') loadScreener(); else renderList();
 }
 function setVenue(v){
@@ -288,5 +313,5 @@ $('#dateInp').value=new Date().toLocaleDateString('sv-SE');
 $('#dateInp').onchange=()=>{state.screener=null;loadToday().then(()=>{if(state.mode==='mk')loadScreener()})};
 loadStatus().then(loadToday);
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4bde187fbb700dc',t:'MTc5MjIyNTE5NA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
