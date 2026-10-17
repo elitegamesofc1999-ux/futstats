@@ -25,11 +25,16 @@
   .modes button.on{background:#14281d;border-color:var(--acc);color:var(--txt)}
   /* abas horizontais (ligas / grupos de mercado) */
   .tabs{display:flex;gap:8px;flex-wrap:wrap;padding:14px 0}
+  #leagueTabs{flex-direction:column;gap:6px}
   .tab{background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:999px;padding:10px 18px;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px}
   .tab .n{background:var(--line);color:var(--mut);border-radius:999px;padding:1px 8px;font-size:12px}
   .tab:hover{border-color:var(--acc2)}
   .tab.on{background:var(--acc2);border-color:var(--acc2);color:#fff}
   .tab.on .n{background:rgba(255,255,255,.2);color:#fff}
+  .grp{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 0}
+  .grp .gl{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;min-width:92px}
+  .btn{background:var(--acc2);color:#fff;border:0;border-radius:10px;padding:10px 18px;font-size:15px;font-weight:700;cursor:pointer}
+  .btn:disabled{opacity:.5}
   .sub{display:flex;gap:8px;flex-wrap:wrap;padding:0 0 14px;align-items:center}
   .chip{background:transparent;border:1px solid var(--line);color:var(--mut);border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer}
   .chip:hover{border-color:var(--acc2);color:var(--txt)}
@@ -126,8 +131,15 @@
       <span class="hint">Mostrar jogos com tendência</span>
       <select id="thrSel"><option value="0">todos</option><option value="60">≥ 60%</option><option value="70" selected>≥ 70%</option><option value="80">≥ 80%</option><option value="90">≥ 90%</option></select>
       <span class="hint" id="thrInfo"></span>
-      <span class="sp" style="flex:1"></span>
-      <span class="hint">Ligas:</span><span id="mkLeagueChips" style="display:flex;gap:6px;flex-wrap:wrap"></span>
+    </div>
+    <div class="card" style="padding:12px 16px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+        <b>Ligas analisadas</b><span class="hint">marque as que quer incluir no ranking (só ligas com jogo hoje aparecem)</span>
+        <span style="flex:1"></span>
+        <button class="chip" id="mkAll">marcar todas</button><button class="chip" id="mkNone">limpar</button>
+        <button class="btn" id="mkGo">Analisar ligas marcadas ▶</button>
+      </div>
+      <div id="mkLeagueChips"></div>
     </div>
   </div>
 
@@ -146,7 +158,7 @@ let state={fixtures:[],leagues:[],league:null,mode:'games',venue:0,
 /* ---------- carregamento ---------- */
 async function loadStatus(){
   const s=await (await fetch('/api/status')).json(); state.leagues=s.leagues;
-  if(!state.mkLeagues.size) s.leagues.forEach(l=>state.mkLeagues.add(l.id));
+  if(!state.mkLeagues.size) s.leagues.filter(l=>l.default).forEach(l=>state.mkLeagues.add(l.id));
 }
 async function loadMarkets(){
   state.markets=await (await fetch('/api/markets')).json();
@@ -156,7 +168,7 @@ async function loadToday(){
   const d=$('#dateInp').value; state.open=null; state.cache={}; state.screener=null;
   $('#list').innerHTML='<div class="loading">Carregando jogos…</div>';
   const j=await (await fetch('/api/today?d='+d)).json(); state.fixtures=j.fixtures;
-  renderLeagueTabs(); render();
+  renderLeagueTabs(); if(state.markets.length) renderMkBar(); render();
 }
 
 /* ---------- barra de ligas ---------- */
@@ -164,8 +176,9 @@ function renderLeagueTabs(){
   const counts={};state.fixtures.forEach(f=>counts[f.league_id]=(counts[f.league_id]||0)+1);
   const present=state.leagues.filter(l=>counts[l.id]);
   if(state.league&&!counts[state.league]) state.league=null;
-  $('#leagueTabs').innerHTML=`<div class="tab ${state.league===null?'on':''}" data-l="">Todas <span class="n">${state.fixtures.length}</span></div>`+
-    present.map(l=>`<div class="tab ${state.league===l.id?'on':''}" data-l="${l.id}">${l.flag} ${l.name} <span class="n">${counts[l.id]}</span></div>`).join('');
+  const groups=[...new Set(present.map(l=>l.group))];
+  $('#leagueTabs').innerHTML=`<div class="grp"><span class="gl"></span><div class="tab ${state.league===null?'on':''}" data-l="">Todas as ligas <span class="n">${state.fixtures.length}</span></div></div>`+
+    groups.map(g=>`<div class="grp"><span class="gl">${g}</span>${present.filter(l=>l.group===g).map(l=>`<div class="tab ${state.league===l.id?'on':''}" data-l="${l.id}">${l.flag} ${l.name} <span class="n">${counts[l.id]}</span></div>`).join('')}</div>`).join('');
   $('#leagueTabs').querySelectorAll('.tab').forEach(t=>t.onclick=()=>{state.league=t.dataset.l||null;renderLeagueTabs();render();});
 }
 
@@ -176,8 +189,12 @@ function renderMkBar(){
   const g=state.markets.find(x=>x.group===state.group);
   $('#marketChips').innerHTML=g.items.map(i=>`<button class="chip ${i.id===state.market?'on':''}" data-m="${i.id}">${i.label}</button>`).join('');
   $('#marketChips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{state.market=c.dataset.m;renderMkBar();render();});
-  $('#mkLeagueChips').innerHTML=state.leagues.map(l=>`<button class="chip ${state.mkLeagues.has(l.id)?'on':''}" data-l="${l.id}" style="padding:5px 9px;font-size:12px">${l.flag} ${l.name}</button>`).join('');
-  $('#mkLeagueChips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{const id=c.dataset.l;state.mkLeagues.has(id)?state.mkLeagues.delete(id):state.mkLeagues.add(id);renderMkBar();render();});
+  const counts={};state.fixtures.forEach(f=>counts[f.league_id]=(counts[f.league_id]||0)+1);
+  const present=state.leagues.filter(l=>counts[l.id]); const groups=[...new Set(present.map(l=>l.group))];
+  $('#mkLeagueChips').innerHTML=groups.map(g=>`<div class="grp"><span class="gl">${g}</span>${present.filter(l=>l.group===g).map(l=>`<button class="chip ${state.mkLeagues.has(l.id)?'on':''}" data-l="${l.id}" style="padding:6px 10px;font-size:13px">${l.flag} ${l.name} <span class="hint">${counts[l.id]}</span></button>`).join('')}</div>`).join('');
+  $('#mkLeagueChips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{const id=c.dataset.l;state.mkLeagues.has(id)?state.mkLeagues.delete(id):state.mkLeagues.add(id);renderMkBar();});
+  const pending=!state.screener||[...state.mkLeagues].filter(l=>counts[l]).sort().join(',')!==state.screener.leagues.join(',');
+  $('#mkGo').style.display=pending?'':'none';
 }
 
 /* ---------- modos ---------- */
@@ -190,11 +207,14 @@ function setMode(m){
 function setVenue(v){state.venue=v;$('#venAll').classList.toggle('on',!v);$('#venSplit').classList.toggle('on',!!v);state.cache={};state.screener=null;if(state.mode==='mk')loadScreener();else render();}
 async function loadScreener(){
   const d=$('#dateInp').value;
-  if(state.screener&&state.screener.date===d&&state.screener.venue===!!state.venue) return render();
+  const counts={};state.fixtures.forEach(f=>counts[f.league_id]=1);
+  const lg=[...state.mkLeagues].filter(l=>counts[l]).sort();
+  if(!lg.length){$('#list').innerHTML='<div class="empty">Marque pelo menos uma liga e clique em "Analisar".</div>';return}
+  if(state.screener&&state.screener.date===d&&state.screener.venue===!!state.venue&&state.screener.leagues.join(',')===lg.join(',')) return render();
   state.loadingScr=true;
-  $('#list').innerHTML='<div class="loading">⏳ Analisando os últimos 10 jogos de TODOS os times do dia…<br><small>na primeira vez leva uns 20-40 s, depois é instantâneo</small></div>';
-  state.screener=await (await fetch('/api/screener?d='+d+'&venue='+state.venue)).json();
-  state.loadingScr=false; render();
+  $('#list').innerHTML='<div class="loading">⏳ Analisando os últimos 10 jogos de cada time das ligas marcadas…<br><small>~1 s por jogo na primeira vez, depois é instantâneo</small></div>';
+  state.screener=await (await fetch('/api/screener?d='+d+'&venue='+state.venue+'&leagues='+lg.join(','))).json();
+  state.loadingScr=false; renderMkBar(); render();
 }
 
 /* ---------- lista ---------- */
@@ -328,6 +348,9 @@ $('#modeGames').onclick=()=>setMode('games');
 $('#modeMk').onclick=()=>setMode('mk');
 $('#venAll').onclick=()=>setVenue(0); $('#venSplit').onclick=()=>setVenue(1);
 $('#thrSel').onchange=e=>{state.thr=+e.target.value;render()};
+$('#mkGo').onclick=()=>loadScreener();
+$('#mkAll').onclick=()=>{state.fixtures.forEach(f=>state.mkLeagues.add(f.league_id));renderMkBar()};
+$('#mkNone').onclick=()=>{state.mkLeagues.clear();renderMkBar()};
 $('#dateInp').value=new Date().toLocaleDateString('sv-SE');
 $('#dateInp').onchange=()=>{loadToday().then(()=>{if(state.mode==='mk')loadScreener()})};
 loadStatus().then(()=>{loadMarkets();loadToday();});
