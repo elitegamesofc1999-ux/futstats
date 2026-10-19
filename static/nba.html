@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FutStats NBA — últimos 10 jogos</title>
+<style>
+  :root{--bg:#0b0f17;--card:#121826;--card2:#182036;--line:#1f2a44;--txt:#e6ebf5;--mut:#8a95ad;--acc:#22c55e;--acc2:#f97316;--blue:#3b82f6;--warn:#f59e0b;--red:#ef4444}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt);font-size:16px}
+  header{position:sticky;top:0;z-index:5;background:rgba(11,15,23,.95);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .wrap{max-width:1400px;margin:0 auto;padding:0 24px}
+  .top{display:flex;align-items:center;gap:16px;padding:14px 0;flex-wrap:wrap}
+  .top h1{margin:0;font-size:26px}
+  .top h1 span{color:var(--acc2)}
+  .top small{color:var(--mut);font-size:14px}
+  .sp{flex:1}
+  .seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px}
+  .seg button{background:transparent;color:var(--mut);border:0;border-radius:8px;padding:9px 16px;font-size:15px;font-weight:600;cursor:pointer}
+  .seg button.on{background:var(--acc2);color:#fff}
+  input[type=date],input[type=number],select{background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:15px}
+  .modes{display:flex;gap:10px;padding:16px 0 12px}
+  .modes button{flex:1;background:var(--card);border:1px solid var(--line);color:var(--mut);border-radius:12px;padding:14px;font-size:17px;font-weight:700;cursor:pointer}
+  .modes button.on{background:#2a1a0a;border-color:var(--acc2);color:var(--txt)}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;padding:10px 0}
+  .tab{background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:999px;padding:10px 18px;font-size:15px;font-weight:600;cursor:pointer}
+  .tab.on{background:var(--acc2);border-color:var(--acc2);color:#fff}
+  .sub{display:flex;gap:8px;flex-wrap:wrap;padding:0 0 14px;align-items:center}
+  .chip{background:transparent;border:1px solid var(--line);color:var(--mut);border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer}
+  .chip.on{background:#2a1a0a;border-color:var(--acc2);color:var(--txt);font-weight:600}
+  .hint{color:var(--mut);font-size:13px}
+  .lghead{margin:22px 0 8px;font-size:14px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;font-weight:700}
+  .fx{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:10px;overflow:hidden}
+  .fx.open{border-color:var(--acc2)}
+  .fxrow{display:grid;grid-template-columns:90px 1fr 150px 1fr auto;align-items:center;gap:14px;padding:16px 20px;cursor:pointer}
+  .fxrow:hover{background:var(--card2)}
+  .fxrow .time{font-weight:800;font-size:20px}
+  .fxrow .time small{display:block;font-size:12px;color:var(--mut);font-weight:400}
+  .team{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:600}
+  .team.r{justify-content:flex-end;text-align:right}
+  .team img{width:36px;height:36px;object-fit:contain}
+  .mid{text-align:center;color:var(--mut);font-size:13px}
+  .mid b{display:block;font-size:18px;color:var(--txt)}
+  .arrow{color:var(--mut);font-size:18px;transition:.2s}
+  .fx.open .arrow{transform:rotate(180deg);color:var(--acc2)}
+  .big{font-size:26px;font-weight:800}
+  .pct{font-weight:800}.pct.hi{color:var(--acc)}.pct.mid{color:var(--warn)}.pct.lo{color:var(--red)}
+  .mini{font-size:13px;color:var(--mut);margin-top:4px}.mini b{color:var(--txt)}
+  .detail{border-top:1px solid var(--line);background:#0e1420;padding:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:14px}
+  h3{margin:0 0 14px;font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--mut)}
+  .note{background:#2a1f0a;border:1px solid #6b4a0a;color:#fbd38d;border-radius:10px;padding:10px 14px;font-size:14px;margin-bottom:14px}
+  .ins{display:flex;flex-wrap:wrap;gap:8px}
+  .ins span{background:#102a1a;border:1px solid #1b4d2e;color:#a7f3c4;border-radius:8px;padding:7px 12px;font-size:14px}
+  .ins span.away{background:#0f1f3a;border-color:#1e3a6b;color:#bfdbfe}
+  .cmp{display:grid;grid-template-columns:1fr 220px 1fr;gap:8px 14px;align-items:center;font-size:15px}
+  .cmp .lbl{text-align:center;color:var(--mut);font-size:14px}
+  .cmp .v{display:flex;align-items:center;gap:10px}.cmp .v.r{flex-direction:row-reverse}
+  .cmp .v b{min-width:48px;text-align:center}
+  .cmp .v .bar{flex:1;height:10px;background:var(--line);border-radius:6px;overflow:hidden}
+  .cmp .v .bar i{display:block;height:100%;background:var(--blue)}.cmp .v.r .bar i{margin-left:auto}
+  .cmp .hd{font-weight:800;font-size:17px}
+  .hits{color:var(--mut);font-size:13px}
+  .dots{display:flex;gap:4px}.dots i{width:12px;height:12px;border-radius:3px;background:var(--line)}.dots i.on{background:var(--acc)}
+  .v.r .dots{flex-direction:row-reverse}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .two h4{margin:0 0 8px;font-size:16px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+  th{color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase}
+  td.num,th.num{text-align:right}
+  tr.pl{cursor:pointer}tr.pl:hover{background:var(--card2)}
+  .safe{color:var(--acc);font-weight:700}
+  .plog{background:#0b0f17;padding:12px;border-radius:10px;margin:6px 0 12px}
+  .calc{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .calc .out{font-size:18px;font-weight:800}
+  .res{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:5px;font-size:12px;font-weight:700}
+  .res.V{background:#14532d;color:#86efac}.res.D{background:#7f1d1d;color:#fca5a5}
+  .empty,.loading{color:var(--mut);text-align:center;padding:50px 20px;font-size:16px}
+  .odds{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+  .odds .o{background:#0b0f17;border:1px solid var(--line);border-radius:10px;padding:10px 16px}
+  .odds .o b{font-size:22px;display:block}
+  @media(max-width:800px){.wrap{padding:0 12px}.fxrow{grid-template-columns:70px 1fr auto;gap:8px;padding:12px}.fxrow .mid{display:none}.team.r{justify-content:flex-start;text-align:left}.fxrow .t2{grid-column:2}.cmp{grid-template-columns:1fr 130px 1fr;font-size:13px}.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><div class="top">
+  <h1>🏀 Fut<span>Stats</span> NBA</h1><small>o que mais bateu nos últimos 10 jogos</small>
+  <div class="seg" style="margin-left:8px"><button onclick="location.href='/'">⚽ Futebol</button><button class="on">🏀 NBA</button></div>
+  <span class="sp"></span>
+  <label class="hint" style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="preChk"> incluir pré-temporada</label>
+  <input type="date" id="dateInp">
+</div></div></header>
+
+<main class="wrap">
+  <div class="modes"><button class="on" id="modeGames">📅 Jogos do dia</button><button id="modeMk">🎯 Filtrar por mercado</button></div>
+  <div id="mkBar" style="display:none">
+    <div class="tabs" id="groupTabs"></div>
+    <div class="sub" id="marketChips"></div>
+    <div class="sub"><span class="hint">Mostrar jogos com tendência</span>
+      <select id="thrSel"><option value="0">todos</option><option value="60">≥ 60%</option><option value="70" selected>≥ 70%</option><option value="80">≥ 80%</option></select>
+      <span class="hint" id="thrInfo"></span></div>
+  </div>
+  <div id="list"><div class="loading">Carregando jogos…</div></div>
+</main>
+
+<script>
+const $=s=>document.querySelector(s);
+const fmt=n=>n==null?'–':(Number.isInteger(n)?n:(+n).toFixed(1));
+const hhmm=iso=>new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+const pctCls=p=>p>=70?'hi':p>=50?'mid':'lo';
+let state={games:[],mode:'games',markets:[],group:null,market:'0_2',thr:70,screener:null,open:null,cache:{},pre:0,pl:{}};
+
+async function loadMarkets(){state.markets=await (await fetch('/api/nba/markets')).json();state.group=state.markets[0].group;renderMkBar();}
+async function loadToday(){
+  const d=$('#dateInp').value; state.open=null; state.cache={}; state.screener=null;
+  $('#list').innerHTML='<div class="loading">Carregando jogos…</div>';
+  const j=await (await fetch('/api/nba/today?d='+d)).json(); state.games=j.games; render();
+}
+function renderMkBar(){
+  $('#groupTabs').innerHTML=state.markets.map(g=>`<div class="tab ${g.group===state.group?'on':''}" data-g="${g.group}">${g.group}</div>`).join('');
+  $('#groupTabs').querySelectorAll('.tab').forEach(t=>t.onclick=()=>{state.group=t.dataset.g;const g=state.markets.find(x=>x.group===state.group);if(!g.items.some(i=>i.id===state.market))state.market=g.items[0].id;renderMkBar();render();});
+  const g=state.markets.find(x=>x.group===state.group);
+  $('#marketChips').innerHTML=g.items.map(i=>`<button class="chip ${i.id===state.market?'on':''}" data-m="${i.id}">${i.label}</button>`).join('');
+  $('#marketChips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{state.market=c.dataset.m;renderMkBar();render();});
+}
+function setMode(m){state.mode=m;state.open=null;$('#modeGames').classList.toggle('on',m==='games');$('#modeMk').classList.toggle('on',m==='mk');$('#mkBar').style.display=m==='mk'?'':'none';m==='mk'?loadScreener():render();}
+async function loadScreener(){
+  const d=$('#dateInp').value;
+  if(state.screener&&state.screener.date===d) return render();
+  $('#list').innerHTML='<div class="loading">⏳ Analisando os últimos 10 jogos de todos os times de hoje… (primeira vez ~20 s)</div>';
+  state.screener=await (await fetch('/api/nba/screener?d='+d)).json(); render();
+}
+function render(){state.mode==='mk'?renderRank():renderGames();}
+
+function row(g,extra){
+  const fin=g.status==='FT',live=g.status==='LIVE';
+  return `<div class="fx ${state.open===g.id?'open':''}" id="fx${g.id}">
+    <div class="fxrow" data-id="${g.id}">
+      <div class="time">${fin?g.away_pts+'-'+g.home_pts:hhmm(g.date)}<small>${fin?'Encerrado':live?'🔴 '+g.status_detail:'horário de Brasília'}</small></div>
+      <div class="team"><img src="${g.away_logo}">${g.away_name}</div>
+      <div class="mid">${extra||'<span>@</span>'}</div>
+      <div class="team r t2">${g.home_name}<img src="${g.home_logo}"></div>
+      <div><span class="arrow">▼</span></div>
+    </div>
+    <div class="detail" id="det${g.id}" style="display:${state.open===g.id?'':'none'}"></div></div>`;
+}
+function bind(){$('#list').querySelectorAll('.fxrow').forEach(e=>e.onclick=()=>toggle(+e.dataset.id));}
+function renderGames(){
+  if(!state.games.length){$('#list').innerHTML='<div class="empty">Nenhum jogo da NBA nesse dia.<br><small>A temporada 2026-27 começa em 21/10 — mude a data acima.</small></div>';return}
+  $('#list').innerHTML=`<div class="lghead">🏀 NBA · ${state.games.length} jogos · visitante @ mandante</div>`+state.games.map(g=>row(g)).join(''); bind(); if(state.open) fill(state.open);
+}
+function renderRank(){
+  if(!state.screener) return;
+  const m=state.market, mk=state.markets.flatMap(g=>g.items).find(i=>i.id===m);
+  let gs=state.screener.games.filter(g=>g.markets[m]&&g.markets[m].pct!=null);
+  gs.sort((a,b)=>b.markets[m].pct-a.markets[m].pct);
+  const total=gs.length; gs=gs.filter(g=>g.markets[m].pct>=state.thr);
+  $('#thrInfo').textContent=`· ${gs.length} de ${total} jogos`;
+  if(!gs.length){$('#list').innerHTML=`<div class="empty">Nenhum jogo bateu <b>${mk.label}</b> em ≥ ${state.thr}%.</div>`;return}
+  $('#list').innerHTML=`<div class="lghead">${state.group} — ${mk.label} · ranking de hoje</div>`+gs.map(g=>{const k=g.markets[m];
+    return row(g,`<span class="big pct ${pctCls(k.pct)}">${k.pct}%</span><div class="mini"><b>${k.away_hits}/${k.away_n}</b> · <b>${k.home_hits}/${k.home_n}</b></div>`)}).join('');
+  bind(); if(state.open) fill(state.open);
+}
+function toggle(id){if(state.open===id){state.open=null;render();return}state.open=id;render();const el=document.getElementById('fx'+id);if(el)setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),50);}
+async function fill(id){
+  const box=document.getElementById('det'+id); if(!box) return;
+  const ck=id+':'+state.pre;
+  if(state.cache[ck]){box.innerHTML=renderGame(state.cache[ck]);bindPlayers(box,state.cache[ck]);return}
+  box.innerHTML='<div class="loading">⏳ Buscando os últimos 10 jogos de cada time…</div>';
+  const m=await (await fetch(`/api/nba/game/${id}?pre=${state.pre}`)).json();
+  state.cache[ck]=m; if(state.open===id){box.innerHTML=renderGame(m);bindPlayers(box,m);}
+}
+function insights(side){const out=[];for(const g of side.frequencies)for(const it of g.items)if(it.n>=3&&it.pct>=80)out.push(`${it.label}: ${it.hits}/${it.n}`);return out.slice(0,8);}
+
+function renderGame(m){
+  const g=m.game,H=m.home,A=m.away,o=m.odds;
+  let html='';
+  const old=[...H.games,...A.games].some(x=>x.stype&&x.stype!=='Temporada regular');
+  if(old) html+=`<div class="note">ℹ️ Início de temporada: os últimos 10 incluem jogos da temporada passada (playoffs/regular). Elencos podem ter mudado.</div>`;
+  if(H.n===0&&A.n===0) return html+'<div class="empty">Sem histórico disponível.</div>';
+  // linha da casa
+  if(o&&o.total){
+    const over=(s,l)=>s.games.filter(x=>x.total>l).length;
+    html+=`<div class="card"><h3>📈 Linha do jogo (${o.provider||'casa'})</h3><div class="odds">
+      <div class="o"><span class="hint">Total de pontos</span><b>${o.total}</b></div>
+      <div class="o"><span class="hint">Jogos do ${A.n?g.away_abbr:''} acima de ${o.total}</span><b class="pct ${pctCls(100*over(A,o.total)/A.n)}">${over(A,o.total)}/${A.n}</b></div>
+      <div class="o"><span class="hint">Jogos do ${g.home_abbr} acima de ${o.total}</span><b class="pct ${pctCls(100*over(H,o.total)/H.n)}">${over(H,o.total)}/${H.n}</b></div>
+      ${o.details?`<div class="o"><span class="hint">Spread</span><b>${o.details}</b></div>`:''}
+      <div class="o"><span class="hint">Média total últimos 10</span><b>${fmt(A.averages.total.value)} · ${fmt(H.averages.total.value)}</b></div>
+    </div></div>`;
+  }
+  const iA=insights(A),iH=insights(H);
+  if(iA.length||iH.length) html+=`<div class="card"><h3>🔥 O que mais se repete (≥80%)</h3><div class="ins">${iA.map(s=>`<span class="away">${g.away_abbr}: ${s}</span>`).join('')}${iH.map(s=>`<span>${g.home_abbr}: ${s}</span>`).join('')}</div></div>`;
+
+  // jogadores primeiro (é o que mais interessa na NBA)
+  const ptab=(side,name,key)=>`<div><h4>${name}</h4><table><tr><th>Jogador</th><th class="num">J</th><th class="num">Min</th><th class="num">PTS</th><th class="num">REB</th><th class="num">AST</th><th class="num">3PT</th><th class="num">P+R+A</th><th class="num">STL</th><th class="num">BLK</th></tr>
+    ${side.players.map((p,i)=>`<tr class="pl" data-k="${key}" data-i="${i}"><td><b>${p.name}</b> <span class="hint">${p.pos}</span></td><td class="num">${p.games}</td><td class="num">${fmt(p.min)}</td>
+      ${['pts','reb','ast','tpm','pra','stl','blk'].map(k=>`<td class="num">${fmt(p.stats[k].avg)}<br><span class="safe" title="linha que bateu em ≥80% dos jogos">${p.stats[k].safe8!=null?'+'+p.stats[k].safe8:'–'}</span></td>`).join('')}</tr>
+      <tr id="plog_${key}_${i}" style="display:none"><td colspan="10"></td></tr>`).join('')}</table></div>`;
+  html+=`<div class="card"><h3>👤 Jogadores — média nos últimos 10 e <span class="safe">linha segura (bateu em ≥80%)</span></h3>
+    <div class="two">${ptab(A,g.away_name,'a')}${ptab(H,g.home_name,'h')}</div>
+    <div class="hint" style="margin-top:8px">Número grande = média. Número verde "+17.5" = o jogador passou dessa linha em pelo menos 8 dos 10 jogos. <b>Clique no jogador</b> pra ver jogo a jogo e testar qualquer linha.</div></div>`;
+
+  for(let gi=0;gi<H.frequencies.length;gi++){
+    const ga=A.frequencies[gi],gh=H.frequencies[gi];
+    html+=`<div class="card"><h3>${ga.group} — bateu em quantos dos últimos ${m.history_n}?</h3><div class="cmp">
+      <div class="hd">${g.away_name}</div><div></div><div class="hd" style="text-align:right">${g.home_name}</div>`;
+    for(let i=0;i<ga.items.length;i++){const a=ga.items[i],b=gh.items[i];
+      const dots=it=>`<div class="dots">${Array.from({length:it.n},(_,k)=>`<i class="${k<it.hits?'on':''}"></i>`).join('')}</div>`;
+      html+=`<div class="v"><span class="pct ${pctCls(a.pct)}">${a.pct==null?'–':a.pct+'%'}</span><span class="hits">${a.hits}/${a.n}</span>${dots(a)}</div><div class="lbl">${a.label}</div>
+             <div class="v r"><span class="pct ${pctCls(b.pct)}">${b.pct==null?'–':b.pct+'%'}</span><span class="hits">${b.hits}/${b.n}</span>${dots(b)}</div>`;}
+    html+='</div></div>';
+  }
+  html+=`<div class="card"><h3>📊 Médias por jogo</h3><div class="cmp"><div class="hd">${g.away_name}</div><div></div><div class="hd" style="text-align:right">${g.home_name}</div>`;
+  for(const k of Object.keys(H.averages)){const a=A.averages[k].value,b=H.averages[k].value,mx=Math.max(Math.abs(a||0),Math.abs(b||0),0.01);
+    html+=`<div class="v"><b>${fmt(a)}</b><div class="bar"><i style="width:${Math.abs(a||0)/mx*100}%"></i></div></div><div class="lbl">${H.averages[k].label}</div><div class="v r"><b>${fmt(b)}</b><div class="bar"><i style="width:${Math.abs(b||0)/mx*100}%;background:var(--acc2)"></i></div></div>`;}
+  html+='</div></div>';
+  const gt=(s,n)=>`<div><h4>${n}</h4><table><tr><th>Data</th><th></th><th>Adv</th><th class="num">Placar</th><th class="num">Total</th><th class="num">1ºT</th><th class="num">1ºQ</th><th class="num">3PT</th><th>Fase</th></tr>
+    ${s.games.map(x=>`<tr><td>${x.date.slice(5).split('-').reverse().join('/')}</td><td><span class="res ${x.win?'V':'D'}">${x.win?'V':'D'}</span></td><td>${x.home?'vs':'@'} ${x.opponent}</td><td class="num">${x.score}</td><td class="num">${fmt(x.total)}</td><td class="num">${fmt(x.h1_total)}</td><td class="num">${fmt(x.q1_total)}</td><td class="num">${fmt(x.tpm_for)}</td><td class="hint">${x.stype||''}</td></tr>`).join('')}</table></div>`;
+  html+=`<div class="card"><h3>📋 Últimos jogos</h3><div class="two">${gt(A,g.away_name)}${gt(H,g.home_name)}</div></div>`;
+  return html;
+}
+function bindPlayers(box,m){
+  box.querySelectorAll('tr.pl').forEach(tr=>tr.onclick=()=>{
+    const side=tr.dataset.k==='a'?m.away:m.home, p=side.players[+tr.dataset.i];
+    const lr=box.querySelector(`#plog_${tr.dataset.k}_${tr.dataset.i}`);
+    if(lr.style.display!=='none'){lr.style.display='none';return}
+    lr.style.display='';
+    const td=lr.firstElementChild;
+    const draw=(stat,line)=>{
+      const vals=p.log.map(x=>x[stat]); const hits=vals.filter(v=>v>line).length;
+      const lbl={pts:'pontos',reb:'rebotes',ast:'assistências',tpm:'bolas de 3',pra:'P+R+A',stl:'roubos',blk:'tocos',to:'turnovers'}[stat];
+      td.innerHTML=`<div class="plog"><div class="calc"><b>${p.name}</b> · testar linha:
+        <select id="cs"><option value="pts">Pontos</option><option value="reb">Rebotes</option><option value="ast">Assistências</option><option value="tpm">Bolas de 3</option><option value="pra">P+R+A</option><option value="stl">Roubos</option><option value="blk">Tocos</option></select>
+        <input type="number" id="cl" step="0.5" value="${line}" style="width:90px"> 
+        <span class="out pct ${pctCls(100*hits/vals.length)}">Over ${line} ${lbl}: ${hits}/${vals.length}</span>
+        <span class="hint">· média ${fmt(p.stats[stat].avg)} · mín ${fmt(p.stats[stat].min)} · máx ${fmt(p.stats[stat].max)} · linha 8/10: ${p.stats[stat].safe8!=null?'+'+p.stats[stat].safe8:'–'} · linha 7/10: ${p.stats[stat].safe7!=null?'+'+p.stats[stat].safe7:'–'}</span></div>
+        <table><tr><th>Data</th><th>Adv</th><th class="num">Min</th><th class="num">PTS</th><th class="num">REB</th><th class="num">AST</th><th class="num">3PT</th><th class="num">P+R+A</th><th class="num">STL</th><th class="num">BLK</th><th class="num">TO</th></tr>
+        ${p.log.map(x=>`<tr><td>${x.date.slice(5).split('-').reverse().join('/')}</td><td>${x.opp}</td><td class="num">${fmt(x.min)}</td>${['pts','reb','ast','tpm','pra','stl','blk','to'].map(k=>`<td class="num" style="${k===stat?(x[k]>line?'color:var(--acc);font-weight:700':'color:var(--red);font-weight:700'):''}">${fmt(x[k])}</td>`).join('')}</tr>`).join('')}</table></div>`;
+      td.querySelector('#cs').value=stat;
+      td.querySelector('#cs').onchange=e=>draw(e.target.value,p.stats[e.target.value].safe8??Math.floor(p.stats[e.target.value].avg)-0.5);
+      td.querySelector('#cl').onchange=e=>draw(stat,+e.target.value);
+      td.querySelector('#cl').onkeyup=e=>{if(e.key==='Enter')draw(stat,+e.target.value)};
+    };
+    draw('pts',p.stats.pts.safe8??Math.floor(p.stats.pts.avg)-0.5);
+  });
+}
+$('#modeGames').onclick=()=>setMode('games');$('#modeMk').onclick=()=>setMode('mk');
+$('#thrSel').onchange=e=>{state.thr=+e.target.value;render()};
+$('#preChk').onchange=e=>{state.pre=e.target.checked?1:0;state.cache={};if(state.open)fill(state.open);};
+$('#dateInp').value=new Date().toLocaleDateString('sv-SE');
+$('#dateInp').onchange=()=>{loadToday().then(()=>{if(state.mode==='mk')loadScreener()})};
+loadMarkets();loadToday();
+</script>
+</body>
+</html>
