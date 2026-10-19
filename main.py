@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import date
 
@@ -101,4 +102,75 @@ def screener(d: str | None = None, venue: int = 0, leagues: str | None = None):
         res = list(ex.map(lambda f: _fixture_markets(f, venue), rows))
     out = dict(date=d, venue=bool(venue), leagues=sorted(sel), markets=all_markets(), fixtures=res)
     _screener_cache[ck] = (time.time(), out)
+    return out
+
+
+# ======================================================================
+#  NBA  (módulo separado — não altera nada do futebol)
+# ======================================================================
+import nba as N  # noqa: E402
+
+_nba_screener_cache = {}
+
+
+@app.on_event("startup")
+def _startup_nba():
+    N.init_db()
+
+
+@app.get("/nba")
+def nba_index():
+    return FileResponse(os.path.join(STATIC, "nba.html"))
+
+
+@app.get("/api/nba/today")
+def nba_today(d: str | None = None):
+    d = d or date.today().isoformat()
+    rows = N.games_by_date(d)
+    return dict(date=d, games=rows)
+
+
+@app.get("/api/nba/markets")
+def nba_markets():
+    return N.all_markets()
+
+
+@app.get("/api/nba/game/{gid}")
+def nba_game(gid: int, pre: int = 0):
+    with N.db() as con:
+        g = con.execute("SELECT * FROM games WHERE id=?", (gid,)).fetchone()
+    if not g:
+        raise HTTPException(404, "jogo não encontrado — abra a lista do dia primeiro")
+    g = dict(g)
+    with ThreadPoolExecutor(2) as ex:
+        fh, fa = ex.submit(N.team_history, g["home_id"], HISTORY_N, bool(pre)), ex.submit(N.team_history, g["away_id"], HISTORY_N, bool(pre))
+        home_hist, away_hist = fh.result(), fa.result()
+    odds = N.game_odds(gid) if g["status"] != "FT" else (json.loads(g["odds_json"]) if g.get("odds_json") else None)
+    return dict(game={k: g[k] for k in g if k not in ("box_json", "odds_json")}, odds=odds, history_n=HISTORY_N,
+                home=N.summarize_team(home_hist, g["home_id"], HISTORY_N), away=N.summarize_team(away_hist, g["away_id"], HISTORY_N))
+
+
+def _nba_game_markets(g):
+    H = N.summarize_team(N.team_history(g["home_id"], HISTORY_N), g["home_id"], HISTORY_N)
+    A = N.summarize_team(N.team_history(g["away_id"], HISTORY_N), g["away_id"], HISTORY_N)
+    out = {}
+    for gi, (gh, ga) in enumerate(zip(H["frequencies"], A["frequencies"])):
+        for i, (ih, ia) in enumerate(zip(gh["items"], ga["items"])):
+            tn = ih["n"] + ia["n"]
+            out[f"{gi}_{i}"] = dict(home_hits=ih["hits"], home_n=ih["n"], away_hits=ia["hits"], away_n=ia["n"], pct=round(100 * (ih["hits"] + ia["hits"]) / tn) if tn else None)
+    return dict(**{k: g[k] for k in g if k not in ("box_json", "odds_json")}, markets=out,
+                avg=dict(total=(H["averages"]["total"]["value"], A["averages"]["total"]["value"]), pts=(H["averages"]["pts_for"]["value"], A["averages"]["pts_for"]["value"])))
+
+
+@app.get("/api/nba/screener")
+def nba_screener(d: str | None = None):
+    d = d or date.today().isoformat()
+    c = _nba_screener_cache.get(d)
+    if c and time.time() - c[0] < 900:
+        return c[1]
+    rows = N.games_by_date(d)
+    with ThreadPoolExecutor(4) as ex:
+        res = list(ex.map(_nba_game_markets, rows))
+    out = dict(date=d, markets=N.all_markets(), games=res)
+    _nba_screener_cache[d] = (time.time(), out)
     return out
