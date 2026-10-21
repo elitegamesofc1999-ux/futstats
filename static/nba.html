@@ -76,6 +76,19 @@
   .calc .out{font-size:18px;font-weight:800}
   .res{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:5px;font-size:12px;font-weight:700}
   .res.V{background:#14532d;color:#86efac}.res.D{background:#7f1d1d;color:#fca5a5}
+  .lu{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .lu h4{margin:0 0 8px;font-size:16px;display:flex;align-items:center;gap:8px}
+  .lu .st{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--line);color:var(--mut)}
+  .lu .st.ok{background:#14532d;color:#86efac}.lu .st.exp{background:#3b2a0a;color:#fbd38d}
+  .pl5{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+  .pl5 div{display:flex;align-items:center;gap:10px;background:#0b0f17;border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:15px}
+  .pl5 .pos{min-width:28px;color:var(--mut);font-size:12px;font-weight:700}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--acc);display:inline-block}
+  .dot.y{background:var(--warn)}.dot.r{background:var(--red)}.dot.g{background:var(--mut)}
+  .inj{font-size:14px;display:flex;flex-direction:column;gap:4px}
+  .inj span.s{font-weight:700}.inj .o{color:var(--red)}.inj .q{color:var(--warn)}.inj .p{color:var(--acc)}
+  .tagb{font-size:11px;padding:1px 6px;border-radius:6px;margin-left:4px;vertical-align:middle}
+  .tagb.t{background:#14532d;color:#86efac}.tagb.q{background:#3b2a0a;color:#fbd38d}.tagb.o{background:#7f1d1d;color:#fca5a5}
   .empty,.loading{color:var(--mut);text-align:center;padding:50px 20px;font-size:16px}
   .odds{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
   .odds .o{background:#0b0f17;border:1px solid var(--line);border-radius:10px;padding:10px 16px}
@@ -109,13 +122,14 @@ const $=s=>document.querySelector(s);
 const fmt=n=>n==null?'–':(Number.isInteger(n)?n:(+n).toFixed(1));
 const hhmm=iso=>new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 const pctCls=p=>p>=70?'hi':p>=50?'mid':'lo';
-let state={games:[],mode:'games',markets:[],group:null,market:'0_2',thr:70,screener:null,open:null,cache:{},pre:0,pl:{}};
+let state={lineups:{},games:[],mode:'games',markets:[],group:null,market:'0_2',thr:70,screener:null,open:null,cache:{},pre:0,pl:{}};
 
 async function loadMarkets(){state.markets=await (await fetch('/api/nba/markets')).json();state.group=state.markets[0].group;renderMkBar();}
 async function loadToday(){
   const d=$('#dateInp').value; state.open=null; state.cache={}; state.screener=null;
   $('#list').innerHTML='<div class="loading">Carregando jogos…</div>';
   const j=await (await fetch('/api/nba/today?d='+d)).json(); state.games=j.games; render();
+  fetch('/api/nba/lineups?d='+d).then(r=>r.json()).then(x=>{state.lineups=x;render()}).catch(()=>{});
 }
 function renderMkBar(){
   $('#groupTabs').innerHTML=state.markets.map(g=>`<div class="tab ${g.group===state.group?'on':''}" data-g="${g.group}">${g.group}</div>`).join('');
@@ -141,10 +155,13 @@ function row(g,extra){
       <div class="team"><img src="${g.away_logo}">${g.away_name}</div>
       <div class="mid">${extra||'<span>@</span>'}</div>
       <div class="team r t2">${g.home_name}<img src="${g.home_logo}"></div>
-      <div><span class="arrow">▼</span></div>
+      <div style="display:flex;align-items:center;gap:10px">${luTag(g.id)}<span class="arrow">▼</span></div>
     </div>
     <div class="detail" id="det${g.id}" style="display:${state.open===g.id?'':'none'}"></div></div>`;
 }
+function luTag(id){const l=state.lineups[id];if(!l)return'';
+  const f=(c,ab)=>c.out||c.doubt?`<span class="hint">${ab}: ${c.out?'<span style="color:var(--red)">'+c.out+' fora</span>':''}${c.out&&c.doubt?' · ':''}${c.doubt?'<span style="color:var(--warn)">'+c.doubt+' dúvida</span>':''}</span>`:'';
+  const g=state.games.find(x=>x.id===id)||{};return `<div style="text-align:right;line-height:1.3">${f(l.away,g.away_abbr)}<br>${f(l.home,g.home_abbr)}</div>`}
 function bind(){$('#list').querySelectorAll('.fxrow').forEach(e=>e.onclick=()=>toggle(+e.dataset.id));}
 function renderGames(){
   if(!state.games.length){$('#list').innerHTML='<div class="empty">Nenhum jogo da NBA nesse dia.<br><small>A temporada 2026-27 começa em 21/10 — mude a data acima.</small></div>';return}
@@ -168,8 +185,37 @@ async function fill(id){
   const ck=id+':'+state.pre;
   if(state.cache[ck]){box.innerHTML=renderGame(state.cache[ck]);bindPlayers(box,state.cache[ck]);return}
   box.innerHTML='<div class="loading">⏳ Buscando os últimos 10 jogos de cada time…</div>';
-  const m=await (await fetch(`/api/nba/game/${id}?pre=${state.pre}`)).json();
+  const [m,lu]=await Promise.all([fetch(`/api/nba/game/${id}?pre=${state.pre}`).then(r=>r.json()),fetch(`/api/nba/lineup/${id}`).then(r=>r.json()).catch(()=>null)]); m.lineup=lu;
   state.cache[ck]=m; if(state.open===id){box.innerHTML=renderGame(m);bindPlayers(box,m);}
+}
+function pstatus(m,side,name){
+  const L=m.lineup; if(!L) return '';
+  const s=L[side]; const n=name.toLowerCase();
+  if(s.starters.some(p=>p.name.toLowerCase()===n)) return '<span class="tagb t">titular</span>';
+  const q=s.questionable.find(p=>p.name.toLowerCase()===n);
+  if(q) return (q.inj==='Out'||q.inj==='OFS')?'<span class="tagb o">fora</span>':`<span class="tagb q">${q.inj_pt||'dúvida'}</span>`;
+  const i=s.injuries.find(p=>(p.name||'').toLowerCase()===n);
+  if(i) return i.status==='Out'?'<span class="tagb o">fora</span>':`<span class="tagb q">${i.status_pt||i.status}</span>`;
+  return '';
+}
+function renderLineup(m){
+  const L=m.lineup,g=m.game; if(!L) return '';
+  const col=(side,name,status)=>{
+    const s=L[side];
+    const dot=p=>p.pct>=100?'':p.pct>=75?' y':p.pct>=25?' y':' r';
+    const st=status?`<span class="st ${/confirm/i.test(status)?'ok':'exp'}">${/confirm/i.test(status)?'✅ confirmada':'⏳ provável'}</span>`:'';
+    let h=`<div><h4>${name} ${st}</h4>`;
+    if(s.starters.length) h+=`<div class="pl5">${s.starters.map(p=>`<div><span class="dot${dot(p)}"></span><span class="pos">${p.pos}</span>${p.name}${p.inj?` <span class="hint">(${p.inj_pt}${p.pct!=null?' · '+p.pct+'%':''})</span>`:''}</div>`).join('')}</div>`;
+    else h+=`<div class="hint" style="margin-bottom:10px">RotoWire ainda não publicou a escalação deste jogo.</div>`;
+    const q=s.questionable.filter(p=>p.inj!=='OFS'); const ofs=s.questionable.filter(p=>p.inj==='OFS');
+    const list=q.length?q:s.injuries.map(i=>({name:i.name,pos:i.pos,inj:i.status,inj_pt:i.status_pt,comment:i.comment}));
+    if(list.length) h+=`<div class="inj">${list.map(p=>`<div><span class="s ${/Out/.test(p.inj)?'o':/Prob/.test(p.inj)?'p':'q'}">${/Out/.test(p.inj)?'❌':/Prob/.test(p.inj)?'✅':'❓'} ${p.inj_pt||p.inj}</span> — ${p.name} <span class="hint">${p.pos||''}${p.comment?' · '+p.comment:''}</span></div>`).join('')}</div>`;
+    else h+=`<div class="hint">Nenhum desfalque listado.</div>`;
+    if(ofs.length) h+=`<div class="hint" style="margin-top:6px">Fora da temporada: ${ofs.map(p=>p.name).join(', ')}</div>`;
+    return h+'</div>';
+  };
+  return `<div class="card"><h3>🏥 Escalação provável e desfalques <span class="hint" style="text-transform:none;letter-spacing:0">· fonte: ${L.source||'ESPN (lesões)'}${L.time_et?' · '+L.time_et:''}</span></h3>
+    <div class="lu">${col('away',g.away_name,L.status_away)}${col('home',g.home_name,L.status_home)}</div></div>`;
 }
 function insights(side){const out=[];for(const g of side.frequencies)for(const it of g.items)if(it.n>=3&&it.pct>=80)out.push(`${it.label}: ${it.hits}/${it.n}`);return out.slice(0,8);}
 
@@ -178,6 +224,7 @@ function renderGame(m){
   let html='';
   const old=[...H.games,...A.games].some(x=>x.stype&&x.stype!=='Temporada regular');
   if(old) html+=`<div class="note">ℹ️ Início de temporada: os últimos 10 incluem jogos da temporada passada (playoffs/regular). Elencos podem ter mudado.</div>`;
+  html+=renderLineup(m);
   if(H.n===0&&A.n===0) return html+'<div class="empty">Sem histórico disponível.</div>';
   // linha da casa
   if(o&&o.total){
@@ -195,7 +242,7 @@ function renderGame(m){
 
   // jogadores primeiro (é o que mais interessa na NBA)
   const ptab=(side,name,key)=>`<div><h4>${name}</h4><table><tr><th>Jogador</th><th class="num">J</th><th class="num">Min</th><th class="num">PTS</th><th class="num">REB</th><th class="num">AST</th><th class="num">3PT</th><th class="num">P+R+A</th><th class="num">STL</th><th class="num">BLK</th></tr>
-    ${side.players.map((p,i)=>`<tr class="pl" data-k="${key}" data-i="${i}"><td><b>${p.name}</b> <span class="hint">${p.pos}</span></td><td class="num">${p.games}</td><td class="num">${fmt(p.min)}</td>
+    ${side.players.map((p,i)=>`<tr class="pl" data-k="${key}" data-i="${i}"><td><b>${p.name}</b> <span class="hint">${p.pos}</span>${pstatus(m,key==='a'?'away':'home',p.name)}</td><td class="num">${p.games}</td><td class="num">${fmt(p.min)}</td>
       ${['pts','reb','ast','tpm','pra','stl','blk'].map(k=>`<td class="num">${fmt(p.stats[k].avg)}<br><span class="safe" title="linha que bateu em ≥80% dos jogos">${p.stats[k].safe8!=null?'+'+p.stats[k].safe8:'–'}</span></td>`).join('')}</tr>
       <tr id="plog_${key}_${i}" style="display:none"><td colspan="10"></td></tr>`).join('')}</table></div>`;
   html+=`<div class="card"><h3>👤 Jogadores — média nos últimos 10 e <span class="safe">linha segura (bateu em ≥80%)</span></h3>
