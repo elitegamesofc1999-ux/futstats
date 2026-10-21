@@ -174,3 +174,32 @@ def nba_screener(d: str | None = None):
     out = dict(date=d, markets=N.all_markets(), games=res)
     _nba_screener_cache[d] = (time.time(), out)
     return out
+
+
+# ---------------- escalação provável (RotoWire + lesões ESPN) ----------------
+import rotowire as RW  # noqa: E402
+
+
+@app.get("/api/nba/lineup/{gid}")
+def nba_lineup(gid: int):
+    with N.db() as con:
+        g = con.execute("SELECT * FROM games WHERE id=?", (gid,)).fetchone()
+    if not g:
+        raise HTTPException(404, "jogo não encontrado")
+    return RW.lineups_for(g["away_abbr"], g["home_abbr"], g["away_id"], g["home_id"])
+
+
+@app.get("/api/nba/lineups")
+def nba_lineups_all(d: str | None = None):
+    """Resumo pra lista: quantos fora/dúvida por time em cada jogo do dia."""
+    d = d or date.today().isoformat()
+    out = {}
+    for g in N.games_by_date(d):
+        L = RW.lineups_for(g["away_abbr"], g["home_abbr"], g["away_id"], g["home_id"])
+        def cnt(side):
+            q = side["questionable"]
+            out_n = sum(1 for p in q if p["inj"] in ("Out", "OFS")) or sum(1 for i in side["injuries"] if i["status"] == "Out")
+            dq = sum(1 for p in q if p["inj"] in ("Ques", "Doubt", "GTD", "Prob"))
+            return dict(out=out_n, doubt=dq)
+        out[g["id"]] = dict(source=L["source"], status=L["status_home"] or L["status_away"], away=cnt(L["away"]), home=cnt(L["home"]))
+    return out
