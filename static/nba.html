@@ -266,7 +266,7 @@ function renderGame(m){
       <button class="chip ${state.lineMode==='all'?'on':''}" data-lm="all">mesma pra todos:</button><input type="number" step="0.5" id="lineAll_${g.id}" value="${state.lineAll??''}" placeholder="ex 20.5" style="width:80px;padding:6px">
     </div>
     <div class="two"><div><h4>${g.away_name}</h4><div id="plist_a_${g.id}"></div></div><div><h4>${g.home_name}</h4><div id="plist_h_${g.id}"></div></div></div>
-    <div class="hint" style="margin-top:8px">Barra = valor em cada jogo (mais antigo → mais recente). <span style="color:var(--acc)">Verde</span> passou da linha, <span style="color:var(--red)">vermelho</span> não. Você pode editar a linha de cada jogador no campo ao lado do nome.</div></div>`;
+    <div class="hint" style="margin-top:8px">Barra = valor em cada um dos últimos 10 jogos <b>do jogador</b> (mais antigo → mais recente; se ele ficou fora, busca temporadas anteriores e avisa com ⚠). <span style="color:var(--acc)">Verde</span> passou da linha, <span style="color:var(--red)">vermelho</span> não. Você pode editar a linha de cada jogador no campo ao lado do nome.</div></div>`;
   for(let gi=0;gi<H.frequencies.length;gi++){
     const ga=A.frequencies[gi],gh=H.frequencies[gi];
     html+=`<div class="card"><h3>${ga.group} — bateu em quantos dos últimos ${m.history_n}?</h3><div class="cmp">
@@ -297,7 +297,7 @@ function defLine(p,stat){
 function chart(vals,line,log){
   const mx=Math.max(...vals,line+1,1);
   const L=log?[...log].reverse():null;
-  const bars=[...vals].reverse().map((v,i)=>{const x=L&&L[i];const tip=x?`${x.date.slice(5).split('-').reverse().join('/')} ${x.home?'vs':'@'} ${x.opp}: ${v}`:v;
+  const bars=[...vals].reverse().map((v,i)=>{const x=L&&L[i];const tip=x?`${x.date.split('-').reverse().join('/')} ${x.home?'vs':'@'} ${x.opp}: ${v}${x.stype&&x.stype!=='Temporada regular'?' ('+x.stype+')':''}`:v;
     return `<i class="${v===0?'z':v>line?'':'no'}" style="height:${Math.max(6,v/mx*100)}%" title="${tip}"></i>`}).join('');
   const labels=L?`<div class="clab">${L.map(x=>`<span title="${x.home?'vs':'@'} ${x.opp}"><img src="https://a.espncdn.com/i/teamlogos/nba/500/${(x.opp||'').toLowerCase()}.png" onerror="this.style.display='none'"><br>${x.opp}</span>`).join('')}</div>`:'';
   return `<div><div class="chart">${bars}<div class="ln" style="bottom:${line/mx*100}%"></div></div>${labels}</div>`;
@@ -307,10 +307,12 @@ function renderPlist(m,side,key){
   const el=document.getElementById(`plist_${key}_${g.id}`); if(!el) return;
   const S=side.players;
   if(!S.length){el.innerHTML='<div class="hint">sem dados</div>';return}
-  el.innerHTML=`<div class="phead"><span>Jogador</span><span>Média</span><span>Linha</span><span>Hit</span><span>Últimos ${m.history_n}</span></div>`+S.map((p,i)=>{
+  el.innerHTML=`<div class="phead"><span>Jogador</span><span>Média</span><span>Linha</span><span>Hit</span><span>Últimos ${m.history_n} do jogador</span></div>`+S.map((p,i)=>{
+    if(!p.games) return `<div class="prow" style="cursor:default;opacity:.6"><div class="nm">${p.name}${pstatus(m,key==='a'?'away':'home',p.name)}<br><small>${p.pos} · sem jogos registrados nas últimas 3 temporadas</small></div><div></div><div></div><div></div><div class="hint">—</div></div>`;
     const lk=p.id+':'+stat; const line=state.plLines[lk]??defLine(p,stat);
+    const oldTag=p.old_games?`<span class="hint" style="color:var(--warn)" title="jogos de temporadas anteriores (${p.seasons.join(', ')})"> · ⚠ ${p.old_games} temp. passada</span>`:'';
     const vals=p.log.map(x=>x[stat]); const hits=vals.filter(v=>v>line).length; const pc=Math.round(100*hits/vals.length);
-    return `<div class="prow" data-k="${key}" data-i="${i}"><div class="nm">${p.name}${pstatus(m,key==='a'?'away':'home',p.name)}<br><small>${p.pos} · ${fmt(p.min)} min · ${p.games} j</small></div>
+    return `<div class="prow" data-k="${key}" data-i="${i}"><div class="nm">${p.name}${pstatus(m,key==='a'?'away':'home',p.name)}<br><small>${p.pos} · ${fmt(p.min)} min · ${p.games} j${oldTag}</small></div>
       <div style="text-align:center;font-weight:700">${fmt(p.stats[stat].avg)}</div>
       <div><input type="number" step="0.5" value="${line}" data-lk="${lk}" onclick="event.stopPropagation()"></div>
       <div class="hr pct ${pctCls(pc)}">${pc}%<small>${hits}/${vals.length}</small></div>${chart(vals,line,p.log)}</div>
@@ -320,6 +322,7 @@ function renderPlist(m,side,key){
 }
 function bindPlayerRows(el,m){
   el.querySelectorAll('.prow').forEach(tr=>tr.onclick=()=>{
+    if(!tr.dataset.k) return;
     const side=tr.dataset.k==='a'?m.away:m.home, p=side.players[+tr.dataset.i];
     const lr=el.querySelector(`#plog_${tr.dataset.k}_${tr.dataset.i}`);
     if(lr.style.display!=='none'){lr.style.display='none';return}
@@ -328,8 +331,8 @@ function bindPlayerRows(el,m){
     const vals=p.log.map(x=>x[stat]); const hits=vals.filter(v=>v>line).length;
     lr.innerHTML=`<div class="plog"><div class="calc"><b>${p.name}</b> · Over ${line} ${STAT_LBL[stat]}: <span class="out pct ${pctCls(100*hits/vals.length)}">${hits}/${vals.length}</span>
       <span class="hint">média ${fmt(p.stats[stat].avg)} · mín ${fmt(p.stats[stat].min)} · máx ${fmt(p.stats[stat].max)} · linha 8/10: ${p.stats[stat].safe8!=null?'+'+p.stats[stat].safe8:'–'} · 7/10: ${p.stats[stat].safe7!=null?'+'+p.stats[stat].safe7:'–'}</span></div>
-      <table><tr><th>Data</th><th>Adv</th><th class="num">Min</th><th class="num">PTS</th><th class="num">REB</th><th class="num">AST</th><th class="num">3PT</th><th class="num">P+R+A</th><th class="num">STL</th><th class="num">BLK</th><th class="num">TO</th></tr>
-      ${p.log.map(x=>`<tr><td>${x.date.slice(5).split('-').reverse().join('/')}</td><td>${x.opp}</td><td class="num">${fmt(x.min)}</td>${['pts','reb','ast','tpm','pra','stl','blk','to'].map(k=>`<td class="num" style="${k===stat?(x[k]>line?'color:var(--acc);font-weight:700':'color:var(--red);font-weight:700'):''}">${fmt(x[k])}</td>`).join('')}</tr>`).join('')}</table></div>`;
+      <table><tr><th>Data</th><th>Adv</th><th>Fase</th><th class="num">Min</th><th class="num">PTS</th><th class="num">REB</th><th class="num">AST</th><th class="num">3PT</th><th class="num">P+R+A</th><th class="num">STL</th><th class="num">BLK</th><th class="num">TO</th></tr>
+      ${p.log.map(x=>`<tr><td>${x.date.split('-').reverse().join('/')}</td><td>${x.home?'vs':'@'} ${x.opp}</td><td class="hint">${x.season||''} ${x.stype==='Playoffs'?'PO':x.stype==='Pré-temporada'?'pré':''}</td><td class="num">${fmt(x.min)}</td>${['pts','reb','ast','tpm','pra','stl','blk','to'].map(k=>`<td class="num" style="${k===stat?(x[k]>line?'color:var(--acc);font-weight:700':'color:var(--red);font-weight:700'):''}">${fmt(x[k])}</td>`).join('')}</tr>`).join('')}</table></div>`;
   });
 }
 function bindPlayers(box,m){
