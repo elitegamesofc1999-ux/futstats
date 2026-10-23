@@ -316,7 +316,100 @@ def _safe_line(values, min_hits):
     return line
 
 
-def summarize_team(rows, team_id, n=10):
+# ------------------------------------------------------- elenco + gamelog por jogador
+WEB = "https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba"
+
+
+def roster(team_id):
+    key = f"roster:{team_id}"
+    c = cache_get(key, 6 * 3600)
+    if c is not None:
+        return c
+    out = []
+    try:
+        d = get(f"teams/{team_id}/roster")
+        for a in d.get("athletes", []):
+            out.append(dict(id=int(a["id"]), name=a["displayName"], pos=(a.get("position") or {}).get("abbreviation", ""),
+                            jersey=a.get("jersey"), inj=[(i.get("status")) for i in a.get("injuries", [])]))
+    except Exception:
+        pass
+    cache_set(key, out)
+    return out
+
+
+def _parse_gamelog(d, include_pre):
+    labels = d.get("labels", [])
+    events = d.get("events", {})
+    rows = []
+    for st in d.get("seasonTypes", []):
+        name = st.get("displayName", "")
+        if "Preseason" in name and not include_pre:
+            continue
+        for c in st.get("categories", []):
+            for e in c.get("events") or []:
+                ev = events.get(e["eventId"]) or {}
+                v = dict(zip(labels, e.get("stats", [])))
+                tpm, _ = _made_att(v.get("3PT", "0-0"))
+                fgm, fga = _made_att(v.get("FG", "0-0"))
+                mins = _num(v.get("MIN"))
+                if mins <= 0:
+                    continue
+                pts, reb, ast = _num(v.get("PTS")), _num(v.get("REB")), _num(v.get("AST"))
+                rows.append(dict(
+                    game_id=int(e["eventId"]), date=(ev.get("gameDate") or "")[:10], opp=(ev.get("opponent") or {}).get("abbreviation", ""),
+                    home=ev.get("atVs") == "vs", stype=("Playoffs" if "Postseason" in name else "Pré-temporada" if "Preseason" in name else "Temporada regular"),
+                    season=name[:7], min=mins, pts=pts, reb=reb, ast=ast, tpm=tpm, fgm=fgm, fga=fga,
+                    stl=_num(v.get("STL")), blk=_num(v.get("BLK")), to=_num(v.get("TO")), pra=pts + reb + ast,
+                ))
+    return rows
+
+
+def player_log(pid, n=10, include_pre=False):
+    """Últimos N jogos DO JOGADOR, voltando até 2 temporadas se precisar."""
+    yr = _season_year()
+    rows = []
+    for season in (yr, yr - 1, yr - 2):
+        key = f"plog:{pid}:{season}:{int(include_pre)}"
+        c = cache_get(key, 4 * 3600 if season == yr else 30 * 86400)
+        if c is None:
+            try:
+                r = requests.get(f"{WEB}/athletes/{pid}/gamelog", params={"season": season}, headers=HEADERS, timeout=25)
+                c = _parse_gamelog(r.json(), include_pre) if r.ok else []
+            except Exception:
+                c = []
+            cache_set(key, c)
+        rows.extend(c)
+        if len(rows) >= n:
+            break
+    rows.sort(key=lambda r: r["date"], reverse=True)
+    return rows[:n]
+
+
+def team_players(team_id, n=10, include_pre=False):
+    ros = roster(team_id)
+    with ThreadPoolExecutor(10) as ex:
+        logs = list(ex.map(lambda a: player_log(a["id"], n, include_pre), ros))
+    players = []
+    cur = str(_season_year() - 1)  # "2026" em "2026-27"
+    for a, gl in zip(ros, logs):
+        gp = len(gl)
+        stats = {}
+        for k, lbl in PLAYER_STATS:
+            vals = [g[k] for g in gl]
+            if gp:
+                stats[k] = dict(avg=round(sum(vals) / gp, 1), max=max(vals), min=min(vals), med=statistics.median(vals),
+                                safe8=_safe_line(vals, max(1, round(gp * 0.8))), safe7=_safe_line(vals, max(1, round(gp * 0.7))))
+            else:
+                stats[k] = dict(avg=None, max=None, min=None, med=None, safe8=None, safe7=None)
+        old = sum(1 for g in gl if not g["season"].startswith(cur))
+        players.append(dict(id=a["id"], name=a["name"], pos=a["pos"], jersey=a["jersey"], games=gp,
+                            min=round(sum(g["min"] for g in gl) / gp, 1) if gp else 0, stats=stats, old_games=old,
+                            seasons=sorted({g["season"] for g in gl}), log=gl))
+    players.sort(key=lambda p: (-(p["min"] if p["games"] else -1), -(p["stats"]["pts"]["avg"] or 0)))
+    return players
+
+
+def summarize_team(rows, team_id, n=10, include_pre=False):
     games = [game_metrics(r, team_id) for r in rows][:n]
     N = len(games)
     avg = lambda k: round(sum(g[k] for g in games) / N, 1) if N else None
@@ -328,27 +421,8 @@ def summarize_team(rows, team_id, n=10):
     for group, rules in TEAM_RULES:
         items = [dict(label=l, hits=sum(1 for g in games if fn(g)), n=N, pct=round(100 * sum(1 for g in games if fn(g)) / N) if N else None) for l, fn in rules]
         freqs.append(dict(group=group, items=items))
-    # jogadores
-    logs = {}
-    for r in rows[:n]:
-        box = json.loads(r["box_json"])
-        for p in box["players"].get(str(team_id), []):
-            p = dict(p, pra=p["pts"] + p["reb"] + p["ast"], date=r["date"][:10],
-                     opp=(r["away_abbr"] if r["home_id"] == team_id else r["home_abbr"]))
-            logs.setdefault((p["id"], p["name"], p["pos"]), []).append(p)
-    players = []
-    for (pid, name, pos), gl in logs.items():
-        gp = len(gl)
-        stats = {}
-        for k, lbl in PLAYER_STATS:
-            vals = [g[k] for g in gl]
-            stats[k] = dict(avg=round(sum(vals) / gp, 1), max=max(vals), min=min(vals), med=statistics.median(vals),
-                            last=vals[:5], safe8=_safe_line(vals, max(1, round(gp * 0.8))), safe7=_safe_line(vals, max(1, round(gp * 0.7))))
-        players.append(dict(id=pid, name=name, pos=pos, games=gp, min=round(sum(g["min"] for g in gl) / gp, 1),
-                            starter=sum(1 for g in gl if g["starter"]), stats=stats,
-                            log=[dict(date=g["date"], opp=g["opp"], min=g["min"], pts=g["pts"], reb=g["reb"], ast=g["ast"], tpm=g["tpm"], stl=g["stl"], blk=g["blk"], to=g["to"], pra=g["pra"]) for g in gl]))
-    players.sort(key=lambda p: (-p["min"] * min(p["games"], 5), -p["stats"]["pts"]["avg"]))
-    return dict(n=N, games=games, averages=averages, frequencies=freqs, players=players[:12])
+    players = team_players(team_id, n, include_pre)
+    return dict(n=N, games=games, averages=averages, frequencies=freqs, players=players)
 
 
 def all_markets():
