@@ -151,7 +151,8 @@ def summarize(rows, team_id, venue=None, n_max=10):
     # jogadores: agrega nos jogos que temos players_json
     agg = defaultdict(lambda: dict(games=0, minutes=0, shots=0, shots_on=0, goals=0, assists=0,
                                    fouls=0, fouled=0, yellow=0, red=0, tackles=0, key_passes=0,
-                                   g_shot1=0, g_shot2=0, g_sot1=0, g_foul1=0, g_foul2=0, g_card=0, g_goal=0))
+                                   g_shot1=0, g_shot2=0, g_sot1=0, g_foul1=0, g_foul2=0, g_card=0, g_goal=0, log=[]))
+    gm_by_id = {g["fixture_id"]: g for g in games}
     pgames = 0
     for r in rows:
         if not r["players_json"]:
@@ -172,6 +173,11 @@ def summarize(rows, team_id, venue=None, n_max=10):
             a["g_foul2"] += (p.get("fouls") or 0) >= 2
             a["g_card"] += ((p.get("yellow") or 0) + (p.get("red") or 0)) >= 1
             a["g_goal"] += (p.get("goals") or 0) >= 1
+            gm = gm_by_id.get(r["id"], {})
+            a["log"].append(dict(date=r["date"][:10], opp=gm.get("opponent", ""), opp_logo=gm.get("opponent_logo"), home=gm.get("home"),
+                                 minutes=p.get("minutes") or 0, shots=p.get("shots") or 0, shots_on=p.get("shots_on") or 0,
+                                 fouls=p.get("fouls") or 0, fouled=p.get("fouled") or 0, cards=(p.get("yellow") or 0) + (p.get("red") or 0),
+                                 goals=p.get("goals") or 0, assists=p.get("assists") or 0))
     players = []
     for (pid, name, photo), a in agg.items():
         players.append(dict(id=pid, name=name, photo=photo, **a,
@@ -184,5 +190,6 @@ def summarize(rows, team_id, venue=None, n_max=10):
     top_cards = sorted(players, key=lambda p: (-(p["yellow"] + p["red"]), -p["fouls"]))[:6]
     top_cards = [p for p in top_cards if p["yellow"] + p["red"] > 0]
 
+    all_players = sorted(players, key=lambda p: (-p["games"], -p["minutes"]))[:18]
     return dict(n=n, games=games, averages=avgs, frequencies=freqs,
-                players=dict(games=pgames, top_shots=top_shots, top_fouls=top_fouls, top_cards=top_cards))
+                players=dict(games=pgames, top_shots=top_shots, top_fouls=top_fouls, top_cards=top_cards, all=all_players))
