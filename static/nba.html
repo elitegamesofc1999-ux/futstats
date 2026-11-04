@@ -5,11 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FutStats NBA — últimos 10 jogos</title>
 <style>
-  :root{--bg:#0b0f17;--card:#121826;--card2:#182036;--line:#1f2a44;--txt:#e6ebf5;--mut:#8a95ad;--acc:#22c55e;--acc2:#f97316;--blue:#3b82f6;--warn:#f59e0b;--red:#ef4444}
+  :root{--bg:#0d1117;--card:#141a24;--card2:#1a2230;--line:#232c3d;--txt:#c6cdd8;--mut:#7f8a9c;--acc:#22c55e;--acc2:#f97316;--blue:#3b82f6;--warn:#f59e0b;--red:#ef4444}
   *{box-sizing:border-box}
-  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt);font-size:16px}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt);font-size:17px}
+  b,strong,h1,h2,h4{color:#d7dde6}
   header{position:sticky;top:0;z-index:5;background:rgba(11,15,23,.95);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-  .wrap{max-width:1400px;margin:0 auto;padding:0 24px}
+  .wrap{max-width:1800px;margin:0 auto;padding:0 28px}
   .top{display:flex;align-items:center;gap:16px;padding:14px 0;flex-wrap:wrap}
   .top h1{margin:0;font-size:26px}
   .top h1 span{color:var(--acc2)}
@@ -20,7 +21,14 @@
   .seg button.on{background:var(--acc2);color:#fff}
   input[type=date],input[type=number],select{background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:15px}
   .modes{display:flex;gap:10px;padding:16px 0 12px}
-  .modes button{flex:1;background:var(--card);border:1px solid var(--line);color:var(--mut);border-radius:12px;padding:14px;font-size:17px;font-weight:700;cursor:pointer}
+  .modes button{flex:1;background:var(--card);border:1px solid var(--line);color:var(--mut);border-radius:12px;padding:16px;font-size:18px;font-weight:700;cursor:pointer}
+  .modes button.star.on{background:#2a2208;border-color:var(--warn)}
+  .pick{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin-bottom:10px;display:grid;grid-template-columns:minmax(220px,1.4fr) minmax(180px,1fr) 90px minmax(220px,1.2fr);gap:16px;align-items:center}
+  .badge{font-size:11px;padding:2px 7px;border-radius:999px;font-weight:700;vertical-align:middle}.badge.ok{background:#14532d;color:#86efac}.badge.warn{background:#4a3306;color:#fcd34d}
+  .pick .rank{font-size:12px;color:var(--mut)}.pick .who{font-size:18px;font-weight:800}.pick .who small{display:block;font-weight:400;color:var(--mut);font-size:13px}
+  .pick .mk{font-size:17px;font-weight:700;color:#a7f3c4}.pick .mk small{display:block;font-weight:400;color:var(--mut);font-size:13px}
+  .pick .hr{font-size:26px;font-weight:800;text-align:center}.pick .hr small{display:block;font-size:12px;color:var(--mut);font-weight:400}
+  @media(max-width:800px){.pick{grid-template-columns:1fr 1fr}}
   .modes button.on{background:#2a1a0a;border-color:var(--acc2);color:var(--txt)}
   .tabs{display:flex;gap:8px;flex-wrap:wrap;padding:10px 0}
   .tab{background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:999px;padding:10px 18px;font-size:15px;font-weight:600;cursor:pointer}
@@ -122,7 +130,7 @@
 </div></div></header>
 
 <main class="wrap">
-  <div class="modes"><button class="on" id="modeGames">📅 Jogos do dia</button><button id="modeMk">🎯 Filtrar por mercado</button></div>
+  <div class="modes"><button class="on" id="modeGames">📅 Jogos do dia</button><button id="modeMk">🎯 Filtrar por mercado</button><button id="modeBest" class="star">⭐ A boa do dia</button></div>
   <div id="mkBar" style="display:none">
     <div class="tabs" id="groupTabs"></div>
     <div class="sub" id="marketChips"></div>
@@ -154,14 +162,34 @@ function renderMkBar(){
   $('#marketChips').innerHTML=g.items.map(i=>`<button class="chip ${i.id===state.market?'on':''}" data-m="${i.id}">${i.label}</button>`).join('');
   $('#marketChips').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{state.market=c.dataset.m;renderMkBar();render();});
 }
-function setMode(m){state.mode=m;state.open=null;$('#modeGames').classList.toggle('on',m==='games');$('#modeMk').classList.toggle('on',m==='mk');$('#mkBar').style.display=m==='mk'?'':'none';m==='mk'?loadScreener():render();}
+function setMode(m){state.mode=m;state.open=null;$('#modeGames').classList.toggle('on',m==='games');$('#modeMk').classList.toggle('on',m==='mk');$('#modeBest').classList.toggle('on',m==='best');$('#mkBar').style.display=m==='mk'?'':'none';m==='mk'?loadScreener():m==='best'?loadBest():render();}
+async function loadBest(){
+  const d=$('#dateInp').value;
+  $('#list').innerHTML='<div class="loading">⏳ Analisando todos os jogadores dos jogos de hoje… (primeira vez pode levar 1–2 min)</div>';
+  try{state.best=await (await fetch('/api/nba/best?d='+d)).json();}catch(e){$('#list').innerHTML='<div class="empty">Erro ao carregar.</div>';return}
+  renderBest();
+}
+function renderBest(){
+  const b=state.best; if(!b) return;
+  let html=`<div class="lghead">⭐ As melhores linhas do dia (pontos, rebotes, assistências, bolas de 3) <span class="hint" style="text-transform:none;letter-spacing:0">· linha segura (bateu ≥80% dos últimos 10), ordenado por consistência, margem e titularidade</span></div>`;
+  if(!b.picks.length) html+='<div class="empty">Nenhuma linha encontrada hoje.</div>';
+  b.picks.forEach((p,i)=>{
+    const vals=p.log.map(x=>x[p.stat]);
+    const st=p.status==='titular'?'<span class="badge ok">titular</span>':p.status==='dúvida'?'<span class="badge warn">dúvida</span>':'';
+    html+=`<div class="pick"><div><div class="rank">#${i+1} · ${p.matchup}</div><div class="who"><img src="${p.team_logo}" style="width:24px;height:24px;vertical-align:middle;object-fit:contain"> ${p.player} ${st}<small>${p.pos} · ${p.team_name} · vs ${p.opp}${p.old_games?` · ⚠ ${p.old_games} temp. passada`:''}</small></div></div>
+      <div class="mk">${p.label}<small>média ${p.avg} · margem +${p.margin}</small></div>
+      <div class="hr pct ${pctCls(p.pct)}">${p.pct}%<small>${p.hits}/${p.n}</small></div>
+      ${chart(vals,p.line,p.log)}</div>`;
+  });
+  $('#list').innerHTML=html;
+}
 async function loadScreener(){
   const d=$('#dateInp').value;
   if(state.screener&&state.screener.date===d) return render();
   $('#list').innerHTML='<div class="loading">⏳ Analisando os últimos 10 jogos de todos os times de hoje… (primeira vez ~20 s)</div>';
   state.screener=await (await fetch('/api/nba/screener?d='+d)).json(); render();
 }
-function render(){state.mode==='mk'?renderRank():renderGames();}
+function render(){state.mode==='mk'?renderRank():state.mode==='best'?renderBest():renderGames();}
 
 function row(g,extra){
   const fin=g.status==='FT',live=g.status==='LIVE';
@@ -344,11 +372,11 @@ function bindPlayers(box,m){
   return;
 
 }
-$('#modeGames').onclick=()=>setMode('games');$('#modeMk').onclick=()=>setMode('mk');
+$('#modeGames').onclick=()=>setMode('games');$('#modeMk').onclick=()=>setMode('mk');$('#modeBest').onclick=()=>setMode('best');
 $('#thrSel').onchange=e=>{state.thr=+e.target.value;render()};
 $('#preChk').onchange=e=>{state.pre=e.target.checked?1:0;state.cache={};if(state.open)fill(state.open);};
 $('#dateInp').value=new Date().toLocaleDateString('sv-SE');
-$('#dateInp').onchange=()=>{loadToday().then(()=>{if(state.mode==='mk')loadScreener()})};
+$('#dateInp').onchange=()=>{loadToday().then(()=>{if(state.mode==='mk')loadScreener();if(state.mode==='best')loadBest();})};
 loadMarkets();loadToday();
 </script>
 </body>
