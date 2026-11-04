@@ -97,8 +97,9 @@
   .inj span.s{font-weight:700}.inj .o{color:var(--red)}.inj .q{color:var(--warn)}.inj .p{color:var(--acc)}
   .tagb{font-size:11px;padding:1px 6px;border-radius:6px;margin-left:4px;vertical-align:middle}
   .tagb.t{background:#14532d;color:#86efac}.tagb.q{background:#3b2a0a;color:#fbd38d}.tagb.o{background:#7f1d1d;color:#fca5a5}
-  .chart{display:flex;align-items:flex-end;gap:3px;height:48px;position:relative;min-width:150px}
-  .chart i{flex:1;background:var(--acc);border-radius:2px 2px 0 0;min-height:3px}
+  .chart{display:flex;align-items:flex-end;gap:3px;height:64px;position:relative;min-width:150px;padding-top:14px;box-sizing:border-box}
+  .chart i{flex:1;background:var(--acc);border-radius:2px 2px 0 0;min-height:3px;position:relative}
+  .chart i b{position:absolute;bottom:100%;left:0;right:0;text-align:center;font-size:11px;font-weight:700;color:#d7dde6;line-height:1.1;margin-bottom:2px;pointer-events:none}
   .chart i.no{background:var(--red)}.chart i.z{background:#3f3f46}
   .clab{display:flex;gap:3px;margin-top:3px}
   .clab span{flex:1;text-align:center;font-size:9px;color:var(--mut);overflow:hidden;letter-spacing:-.3px;line-height:1.1}
@@ -326,7 +327,7 @@ function chart(vals,line,log){
   const mx=Math.max(...vals,line+1,1);
   const L=log?[...log].reverse():null;
   const bars=[...vals].reverse().map((v,i)=>{const x=L&&L[i];const tip=x?`${x.date.split('-').reverse().join('/')} ${x.home?'vs':'@'} ${x.opp}: ${v}${x.stype&&x.stype!=='Temporada regular'?' ('+x.stype+')':''}`:v;
-    return `<i class="${v===0?'z':v>line?'':'no'}" style="height:${Math.max(6,v/mx*100)}%" title="${tip}"></i>`}).join('');
+    return `<i class="${v===0?'z':v>line?'':'no'}" style="height:${Math.max(6,v/mx*100)}%" title="${tip}"><b>${Number.isInteger(v)?v:(+v).toFixed(1)}</b></i>`}).join('');
   const labels=L?`<div class="clab">${L.map(x=>`<span title="${x.home?'vs':'@'} ${x.opp}"><img src="https://a.espncdn.com/i/teamlogos/nba/500/${(x.opp||'').toLowerCase()}.png" onerror="this.style.display='none'"><br>${x.opp}</span>`).join('')}</div>`:'';
   return `<div><div class="chart">${bars}<div class="ln" style="bottom:${line/mx*100}%"></div></div>${labels}</div>`;
 }

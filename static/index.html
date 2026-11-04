@@ -96,8 +96,9 @@
   td.num,th.num{text-align:right}
   .res{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:5px;font-size:12px;font-weight:700}
   .res.V{background:#14532d;color:#86efac}.res.E{background:#3f3f46;color:#e4e4e7}.res.D{background:#7f1d1d;color:#fca5a5}
-  .chart{display:flex;align-items:flex-end;gap:3px;height:52px;position:relative;min-width:160px}
-  .chart i{flex:1;background:var(--acc);border-radius:2px 2px 0 0;min-height:3px}
+  .chart{display:flex;align-items:flex-end;gap:3px;height:64px;position:relative;min-width:160px;padding-top:14px;box-sizing:border-box}
+  .chart i{flex:1;background:var(--acc);border-radius:2px 2px 0 0;min-height:3px;position:relative}
+  .chart i b{position:absolute;bottom:100%;left:0;right:0;text-align:center;font-size:11px;font-weight:700;color:#d7dde6;line-height:1.1;margin-bottom:2px;pointer-events:none}
   .chart i.no{background:var(--red)}.chart i.z{background:#3f3f46}
   .chart .ln{position:absolute;left:0;right:0;border-top:2px dashed rgba(255,255,255,.5);pointer-events:none}
   .clab{display:flex;gap:3px;margin-top:3px}
@@ -263,7 +264,7 @@ function chart(vals,line,log){
   const mx=Math.max(...vals,line+1,1);
   const L=log?[...log].reverse():null;
   const bars=[...vals].reverse().map((v,i)=>{const x=L&&L[i];const tip=x?`${x.date.split('-').reverse().join('/')} ${x.home?'vs':'@'} ${x.opp}: ${v}`:v;
-    return `<i class="${v===0?'z':v>line?'':'no'}" style="height:${Math.max(6,v/mx*100)}%" title="${tip}"></i>`}).join('');
+    return `<i class="${v===0?'z':v>line?'':'no'}" style="height:${Math.max(6,v/mx*100)}%" title="${tip}"><b>${Number.isInteger(v)?v:(+v).toFixed(1)}</b></i>`}).join('');
   const labels=L?`<div class="clab">${L.map(x=>`<span title="${x.home?'vs':'@'} ${x.opp}">${x.opp_logo?`<img src="${x.opp_logo}" onerror="this.style.display='none'"><br>`:''}${(x.opp||'').slice(0,3).toUpperCase()}</span>`).join('')}</div>`:'';
   return `<div><div class="chart">${bars}<div class="ln" style="bottom:${line/mx*100}%"></div></div>${labels}</div>`;
 }
