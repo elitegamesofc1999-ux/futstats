@@ -60,7 +60,20 @@ LEAGUES = {
     "usa.1": ("MLS", "🇺🇸", "Américas", False),
     "jpn.1": ("J-League", "🇯🇵", "Outros", False),
     "ksa.1": ("Saudi Pro League", "🇸🇦", "Outros", False),
+    # Seleções
+    "fifa.friendly": ("Amistosos de seleções", "🌍", "Seleções", True),
+    "uefa.nations": ("Nations League", "🇪🇺", "Seleções", True),
+    "fifa.worldq.uefa": ("Eliminatórias Europa", "🌍", "Seleções", True),
+    "fifa.worldq.conmebol": ("Eliminatórias Sul-Americanas", "🌎", "Seleções", True),
+    "fifa.worldq.concacaf": ("Eliminatórias Concacaf", "🌎", "Seleções", False),
+    "fifa.worldq.afc": ("Eliminatórias Ásia", "🌏", "Seleções", False),
+    "fifa.worldq.caf": ("Eliminatórias África", "🌍", "Seleções", False),
+    "fifa.world": ("Copa do Mundo", "🏆", "Seleções", True),
+    "uefa.euro": ("Eurocopa", "🏆", "Seleções", False),
+    "conmebol.america": ("Copa América", "🏆", "Seleções", False),
 }
+NATIONAL = ["fifa.friendly", "uefa.nations", "fifa.worldq.uefa", "fifa.worldq.conmebol", "fifa.worldq.concacaf",
+            "fifa.worldq.afc", "fifa.worldq.caf", "fifa.world", "uefa.euro", "conmebol.america"]
 DEFAULT_LEAGUES = [k for k, v in LEAGUES.items() if v[3]]
 EURO_CUPS = ["uefa.champions", "uefa.europa", "uefa.europa.conf"]
 CONMEBOL = ["conmebol.libertadores", "conmebol.sudamericana"]
@@ -75,6 +88,8 @@ _BIG5 = ["eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "por.1", "ned.1", "bel.1",
 
 def extras_for(league_id):
     """Competições extras para buscar o histórico de um time dessa liga."""
+    if league_id in NATIONAL:
+        return NATIONAL
     if league_id in EURO_CUPS:
         return _BIG5
     if league_id in CONMEBOL:
@@ -236,7 +251,7 @@ def fixtures_by_date(d: str, leagues=None):
 # ------------------------------------------------- histórico do time
 def _season_year(league_id):
     today = datetime.now(LOCAL_TZ)
-    if league_id.startswith(("bra", "conmebol", "arg", "swe", "nor", "fin", "usa", "jpn", "mex")):
+    if league_id.startswith(("bra", "conmebol", "arg", "swe", "nor", "fin", "usa", "jpn", "mex", "fifa", "uefa.nations", "uefa.euro")):
         return today.year
     return today.year if today.month >= 7 else today.year - 1
 
