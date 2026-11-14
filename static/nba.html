@@ -150,10 +150,18 @@ const pctCls=p=>p>=70?'hi':p>=50?'mid':'lo';
 let state={plStat:'pts',plLines:{},lineMode:'safe8',lineAll:null,lineups:{},games:[],mode:'games',markets:[],group:null,market:'0_2',thr:70,screener:null,open:null,cache:{},pre:0,pl:{}};
 
 async function loadMarkets(){state.markets=await (await fetch('/api/nba/markets')).json();state.group=state.markets[0].group;renderMkBar();}
+async function fetchRetry(url,tries=4){
+  for(let i=0;i<tries;i++){
+    try{const r=await fetch(url);if(r.ok){const j=await r.json();if(j&&!(i<tries-1&&Array.isArray(j.fixtures||j.games)&&!(j.fixtures||j.games).length))return j;}}catch(e){}
+    $('#list').innerHTML='<div class="loading">⏳ Servidor acordando… tentando de novo ('+(i+1)+'/'+tries+')</div>';
+    await new Promise(r=>setTimeout(r,4000*(i+1)));
+  }
+  try{return await (await fetch(url)).json()}catch(e){return null}
+}
 async function loadToday(){
   const d=$('#dateInp').value; state.open=null; state.cache={}; state.screener=null;
   $('#list').innerHTML='<div class="loading">Carregando jogos…</div>';
-  const j=await (await fetch('/api/nba/today?d='+d)).json(); state.games=j.games; render();
+  const j=await fetchRetry('/api/nba/today?d='+d); state.games=(j&&j.games)||[]; render();
   fetch('/api/nba/lineups?d='+d).then(r=>r.json()).then(x=>{state.lineups=x;render()}).catch(()=>{});
 }
 function renderMkBar(){
@@ -287,7 +295,7 @@ function renderGame(m){
 
   // jogadores (gráficos estilo hit-rate)
   html+=`<div class="card" id="plcard_${g.id}"><h3>👤 Jogadores — últimos 10 jogos <span class="hint" style="text-transform:none;letter-spacing:0">· clique no jogador pra ver jogo a jogo</span></h3>
-    <div class="statsel"><span class="hint">Estatística:</span>${[['pts','Pontos'],['reb','Rebotes'],['ast','Assistências'],['tpm','Bolas de 3'],['pra','P+R+A'],['stl','Roubos'],['blk','Tocos']].map(([k,l])=>`<button class="chip ${state.plStat===k?'on':''}" data-stat="${k}">${l}</button>`).join('')}
+    <div class="statsel"><span class="hint">Estatística:</span>${[['pts','Pontos'],['reb','Rebotes'],['ast','Assistências'],['tpm','Bolas de 3'],['pra','P+R+A'],['stl','Roubos'],['blk','Tocos'],['pf','Faltas'],['ftm','LL convertidos'],['fta','LL tentados']].map(([k,l])=>`<button class="chip ${state.plStat===k?'on':''}" data-stat="${k}">${l}</button>`).join('')}
       <span style="flex:1"></span><span class="hint">Linha:</span>
       <button class="chip ${state.lineMode==='safe8'?'on':''}" data-lm="safe8" title="maior linha que o jogador bateu em ≥80% dos jogos">8 de 10</button>
       <button class="chip ${state.lineMode==='safe7'?'on':''}" data-lm="safe7">7 de 10</button>
@@ -315,7 +323,7 @@ function renderGame(m){
   html+=`<div class="card"><h3>📋 Últimos jogos</h3><div class="two">${gt(A,g.away_name)}${gt(H,g.home_name)}</div></div>`;
   return html;
 }
-const STAT_LBL={pts:'pontos',reb:'rebotes',ast:'assistências',tpm:'bolas de 3',pra:'P+R+A',stl:'roubos',blk:'tocos',to:'turnovers'};
+const STAT_LBL={pts:'pontos',reb:'rebotes',ast:'assistências',tpm:'bolas de 3',pra:'P+R+A',stl:'roubos',blk:'tocos',to:'turnovers',pf:'faltas',ftm:'lances livres convertidos',fta:'lances livres tentados'};
 function defLine(p,stat){
   const st=p.stats[stat];
   if(state.lineMode==='all'&&state.lineAll!=null) return state.lineAll;
@@ -360,8 +368,8 @@ function bindPlayerRows(el,m){
     const vals=p.log.map(x=>x[stat]); const hits=vals.filter(v=>v>line).length;
     lr.innerHTML=`<div class="plog"><div class="calc"><b>${p.name}</b> · Over ${line} ${STAT_LBL[stat]}: <span class="out pct ${pctCls(100*hits/vals.length)}">${hits}/${vals.length}</span>
       <span class="hint">média ${fmt(p.stats[stat].avg)} · mín ${fmt(p.stats[stat].min)} · máx ${fmt(p.stats[stat].max)} · linha 8/10: ${p.stats[stat].safe8!=null?'+'+p.stats[stat].safe8:'–'} · 7/10: ${p.stats[stat].safe7!=null?'+'+p.stats[stat].safe7:'–'}</span></div>
-      <table><tr><th>Data</th><th>Adv</th><th>Fase</th><th class="num">Min</th><th class="num">PTS</th><th class="num">REB</th><th class="num">AST</th><th class="num">3PT</th><th class="num">P+R+A</th><th class="num">STL</th><th class="num">BLK</th><th class="num">TO</th></tr>
-      ${p.log.map(x=>`<tr><td>${x.date.split('-').reverse().join('/')}</td><td>${x.home?'vs':'@'} ${x.opp}</td><td class="hint">${x.season||''} ${x.stype==='Playoffs'?'PO':x.stype==='Pré-temporada'?'pré':''}</td><td class="num">${fmt(x.min)}</td>${['pts','reb','ast','tpm','pra','stl','blk','to'].map(k=>`<td class="num" style="${k===stat?(x[k]>line?'color:var(--acc);font-weight:700':'color:var(--red);font-weight:700'):''}">${fmt(x[k])}</td>`).join('')}</tr>`).join('')}</table></div>`;
+      <table><tr><th>Data</th><th>Adv</th><th>Fase</th><th class="num">Min</th><th class="num">PTS</th><th class="num">REB</th><th class="num">AST</th><th class="num">3PT</th><th class="num">P+R+A</th><th class="num">STL</th><th class="num">BLK</th><th class="num">TO</th><th class="num">PF</th><th class="num">LL</th></tr>
+      ${p.log.map(x=>`<tr><td>${x.date.split('-').reverse().join('/')}</td><td>${x.home?'vs':'@'} ${x.opp}</td><td class="hint">${x.season||''} ${x.stype==='Playoffs'?'PO':x.stype==='Pré-temporada'?'pré':''}</td><td class="num">${fmt(x.min)}</td>${['pts','reb','ast','tpm','pra','stl','blk','to','pf'].map(k=>`<td class="num" style="${k===stat?(x[k]>line?'color:var(--acc);font-weight:700':'color:var(--red);font-weight:700'):''}">${fmt(x[k])}</td>`).join('')}<td class="num" style="${(stat==='ftm'||stat==='fta')?(x[stat]>line?'color:var(--acc);font-weight:700':'color:var(--red);font-weight:700'):''}">${fmt(x.ftm??0)}-${fmt(x.fta??0)}</td></tr>`).join('')}</table></div>`;
   });
 }
 function bindPlayers(box,m){
