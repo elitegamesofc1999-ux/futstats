@@ -187,10 +187,18 @@ async function loadMarkets(){
   state.markets=await (await fetch('/api/markets')).json();
   state.group=state.markets[0].group; renderMkBar();
 }
+async function fetchRetry(url,tries=4){
+  for(let i=0;i<tries;i++){
+    try{const r=await fetch(url);if(r.ok){const j=await r.json();if(j&&!(i<tries-1&&Array.isArray(j.fixtures||j.games)&&!(j.fixtures||j.games).length))return j;}}catch(e){}
+    $('#list').innerHTML='<div class="loading">⏳ Servidor acordando… tentando de novo ('+(i+1)+'/'+tries+')</div>';
+    await new Promise(r=>setTimeout(r,4000*(i+1)));
+  }
+  try{return await (await fetch(url)).json()}catch(e){return null}
+}
 async function loadToday(){
   const d=$('#dateInp').value; state.open=null; state.cache={}; state.screener=null;
   $('#list').innerHTML='<div class="loading">Carregando jogos…</div>';
-  const j=await (await fetch('/api/today?d='+d)).json(); state.fixtures=j.fixtures;
+  const j=await fetchRetry('/api/today?d='+d); state.fixtures=(j&&j.fixtures)||[];
   renderLeagueTabs(); if(state.markets.length) renderMkBar(); render();
 }
 
@@ -302,7 +310,7 @@ function bindRows(){
 }
 function renderGames(){
   let fx=state.fixtures.filter(f=>!state.league||f.league_id===state.league);
-  if(!fx.length){$('#list').innerHTML='<div class="empty">Nenhum jogo nesse dia.</div>';return}
+  if(!fx.length){$('#list').innerHTML='<div class="empty">Nenhum jogo nesse dia.<br><br><small>Se tem jogo hoje, aperte F5 — o servidor gratuito pode ter demorado pra acordar.</small></div>';return}
   let html='',last=null;
   for(const f of fx){
     if(!state.league&&f.league_name!==last){html+=`<div class="lghead">${f.league_flag} ${f.league_name}</div>`;last=f.league_name}
