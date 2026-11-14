@@ -303,7 +303,8 @@ def game_metrics(row, team_id):
 
 
 PLAYER_STATS = [("pts", "Pontos"), ("reb", "Rebotes"), ("ast", "Assistências"), ("tpm", "Bolas de 3"),
-                ("pra", "Pts+Reb+Ast"), ("stl", "Roubos"), ("blk", "Tocos"), ("to", "Turnovers")]
+                ("pra", "Pts+Reb+Ast"), ("stl", "Roubos"), ("blk", "Tocos"), ("to", "Turnovers"),
+                ("pf", "Faltas"), ("ftm", "LL convertidos"), ("fta", "LL tentados")]
 
 
 def _safe_line(values, min_hits):
@@ -351,6 +352,7 @@ def _parse_gamelog(d, include_pre):
                 v = dict(zip(labels, e.get("stats", [])))
                 tpm, _ = _made_att(v.get("3PT", "0-0"))
                 fgm, fga = _made_att(v.get("FG", "0-0"))
+                ftm, fta = _made_att(v.get("FT", "0-0"))
                 mins = _num(v.get("MIN"))
                 if mins <= 0:
                     continue
@@ -360,6 +362,7 @@ def _parse_gamelog(d, include_pre):
                     home=ev.get("atVs") == "vs", stype=("Playoffs" if "Postseason" in name else "Pré-temporada" if "Preseason" in name else "Temporada regular"),
                     season=name[:7], min=mins, pts=pts, reb=reb, ast=ast, tpm=tpm, fgm=fgm, fga=fga,
                     stl=_num(v.get("STL")), blk=_num(v.get("BLK")), to=_num(v.get("TO")), pra=pts + reb + ast,
+                    pf=_num(v.get("PF")), ftm=ftm, fta=fta,
                 ))
     return rows
 
@@ -369,7 +372,7 @@ def player_log(pid, n=10, include_pre=False):
     yr = _season_year()
     rows = []
     for season in (yr, yr - 1, yr - 2):
-        key = f"plog:{pid}:{season}:{int(include_pre)}"
+        key = f"plog2:{pid}:{season}:{int(include_pre)}"
         c = cache_get(key, 4 * 3600 if season == yr else 30 * 86400)
         if c is None:
             try:

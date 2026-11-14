@@ -265,8 +265,8 @@ def best_football(d: str | None = None, leagues: str | None = None, venue: int =
 # ======================================================================
 #  ⭐ A BOA DO DIA — NBA
 # ======================================================================
-NBA_MIN_LINE = dict(pts=9.5, reb=3.5, ast=2.5, tpm=1.5, pra=14.5)
-NBA_LBL = dict(pts="Pontos", reb="Rebotes", ast="Assistências", tpm="Bolas de 3", pra="Pts+Reb+Ast")
+NBA_MIN_LINE = dict(pts=9.5, reb=3.5, ast=2.5, tpm=1.5, pra=14.5, ftm=1.5, fta=2.5, pf=1.5)
+NBA_LBL = dict(pts="Pontos", reb="Rebotes", ast="Assistências", tpm="Bolas de 3", pra="Pts+Reb+Ast", ftm="LL convertidos", fta="LL tentados", pf="Faltas")
 _nba_an_cache = {}
 
 
