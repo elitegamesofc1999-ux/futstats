@@ -119,6 +119,69 @@
   .odds .o{background:#0b0f17;border:1px solid var(--line);border-radius:10px;padding:10px 16px}
   .odds .o b{font-size:22px;display:block}
   @media(max-width:800px){.wrap{padding:0 12px}.fxrow{grid-template-columns:70px 1fr auto;gap:8px;padding:12px}.fxrow .mid{display:none}.team.r{justify-content:flex-start;text-align:left}.fxrow .t2{grid-column:2}.cmp{grid-template-columns:1fr 130px 1fr;font-size:13px}.two{grid-template-columns:1fr}}
+  /* ===================== MODO CELULAR (body.mobile) ===================== */
+  .viewbtn{background:var(--card);border:1px solid var(--line);color:var(--mut);border-radius:10px;padding:8px 10px;font-size:14px;cursor:pointer}
+  #viewAsk{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99;display:none;align-items:center;justify-content:center;padding:20px}
+  #viewAsk .bx{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:360px;width:100%;text-align:center}
+  #viewAsk h2{margin:0 0 6px;font-size:20px}#viewAsk p{color:var(--mut);margin:0 0 18px;font-size:14px}
+  #viewAsk button{display:block;width:100%;padding:14px;margin-bottom:10px;border-radius:12px;border:1px solid var(--line);background:var(--card2);color:var(--txt);font-size:17px;font-weight:700;cursor:pointer}
+  #viewAsk button.p{background:var(--acc);color:#04200f;border-color:var(--acc)}
+  #closeFx{position:fixed;right:12px;bottom:14px;z-index:50;display:none;background:var(--acc2);color:#fff;border:0;border-radius:999px;padding:12px 18px;font-size:15px;font-weight:800;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer}
+  body.mobile{font-size:14px;overflow-x:hidden}
+  body.mobile .wrap{padding:0 8px;max-width:100vw}
+  body.mobile .top{gap:8px;padding:10px 0}
+  body.mobile h1{font-size:20px}body.mobile .top>small{display:none}
+  body.mobile .seg{order:10;width:100%;justify-content:space-between}
+  body.mobile .seg button{padding:8px 6px;font-size:13px;flex:1}
+  body.mobile .sp{display:none}
+  body.mobile .top input[type=date],body.mobile .top select{flex:1;min-width:0;max-width:100%;font-size:14px;padding:8px}
+  body.mobile .modes{flex-wrap:wrap;gap:6px}
+  body.mobile .modes button{font-size:13px;padding:10px 6px;flex:1 1 30%}
+  body.mobile .tabs{gap:6px;padding:10px 0}body.mobile .tab,body.mobile .chip{padding:7px 10px;font-size:12px}
+  body.mobile .lghead{font-size:12px;margin:14px 0 6px}
+  body.mobile .fxrow{grid-template-columns:62px 1fr 22px !important;gap:4px 8px;padding:12px 10px}
+  body.mobile .fxrow .time{font-size:17px}body.mobile .fxrow .time small{font-size:10px}
+  body.mobile .fxrow .team{font-size:15px;gap:8px}body.mobile .fxrow .team img{width:26px;height:26px}
+  body.mobile .fxrow .team.r{justify-content:flex-start;text-align:left;grid-column:2}
+  body.mobile .fxrow .mid{grid-column:2;justify-self:start;font-size:12px;padding:0}
+  body.mobile .fxrow .mid .big{font-size:18px}
+  body.mobile .fxrow .mid:empty,body.mobile .fxrow .mid:not(:has(.big)){display:none}
+  body.mobile .fxrow .tag{grid-column:1/-1;justify-content:flex-start;font-size:11px}
+  body.mobile .fxrow>div:last-child{align-self:center}
+  body.mobile .fxrow .arrow{font-size:12px}
+  body.mobile .fxrow.ufc{grid-template-columns:52px 1fr 22px !important}
+  body.mobile .fxrow .fighter{font-size:14px;gap:8px;grid-column:2}
+  body.mobile .fxrow .fighter.r{justify-content:flex-start;text-align:left;flex-direction:row-reverse}
+  body.mobile .fxrow .fighter img.h{width:34px;height:34px}
+  body.mobile .fxrow .wc{grid-column:2;text-align:left;font-size:11px}body.mobile .fxrow .wc b{display:inline;font-size:12px}
+  body.mobile .detail{padding:8px}
+  body.mobile .card{padding:12px 10px;margin-bottom:10px;overflow-x:auto}
+  body.mobile .card h3{font-size:13px}
+  body.mobile .two,body.mobile .prof,body.mobile .lu{grid-template-columns:1fr;gap:12px}
+  body.mobile .cmp{grid-template-columns:1fr 96px 1fr;gap:6px;font-size:12px}
+  body.mobile .cmp .lbl{font-size:11px;text-align:center}
+  body.mobile .cmp .pct{font-size:14px}body.mobile .dots i{width:8px;height:8px}
+  body.mobile .cmp .hd{font-size:12px}
+  body.mobile .statsel{gap:4px;margin-bottom:8px}
+  body.mobile .phead{display:none}
+  body.mobile .prow{grid-template-columns:1fr 54px 58px 56px;gap:6px 8px;padding:10px 4px}
+  body.mobile .prow>div:nth-child(5),body.mobile .prow>div:last-child:not(.hr){grid-column:1/-1}
+  body.mobile .prow .nm{font-size:14px}body.mobile .prow .hr{font-size:17px}
+  body.mobile .prow input{width:54px;font-size:13px;padding:4px}
+  body.mobile .prow>div:nth-child(2):before{content:'média ';font-size:10px;color:var(--mut);display:block;font-weight:400}
+  body.mobile .prow>div:nth-child(3):before{content:'linha';font-size:10px;color:var(--mut);display:block;text-align:center}
+  body.mobile .chart{min-width:0;height:64px}
+  body.mobile .chart i b{font-size:9px}
+  body.mobile .clab span{font-size:7px}body.mobile .clab img{width:12px;height:12px}
+  body.mobile .pick{grid-template-columns:1fr 1fr;gap:10px;padding:12px}
+  body.mobile .pick>div:last-child{grid-column:1/-1}
+  body.mobile .pick .who{font-size:15px}body.mobile .pick .mk{font-size:14px}body.mobile .pick .hr{font-size:20px}
+  body.mobile table{font-size:11px;min-width:520px}body.mobile th,body.mobile td{padding:4px 5px}
+  body.mobile .pcard{padding:10px;gap:10px}body.mobile .pcard img.h{width:64px;height:64px}body.mobile .pcard .nm{font-size:17px}
+  body.mobile .odds{gap:8px}body.mobile .odds .o{flex:1 1 40%;padding:8px}body.mobile .odds .o b{font-size:18px}
+  body.mobile .ins span{font-size:12px}
+  body.mobile .note{font-size:12px;padding:10px}
+  body.mobile .empty,body.mobile .loading{padding:30px 10px;font-size:14px}
 </style>
 </head>
 <body>
@@ -387,6 +450,22 @@ $('#preChk').onchange=e=>{state.pre=e.target.checked?1:0;state.cache={};if(state
 $('#dateInp').value=new Date().toLocaleDateString('sv-SE');
 $('#dateInp').onchange=()=>{loadToday().then(()=>{if(state.mode==='mk')loadScreener();if(state.mode==='best')loadBest();})};
 loadMarkets();loadToday();
+/* ---------- modo PC / celular ---------- */
+(function(){
+  const KEY='fs_view'; const isSmall=()=>window.innerWidth<820;
+  function apply(v){document.body.classList.toggle('mobile',v==='mobile'||(v!=='pc'&&isSmall()));const b=document.getElementById('viewBtn');if(b)b.textContent=document.body.classList.contains('mobile')?'🖥️ Ver como PC':'📱 Ver como celular';}
+  function set(v){localStorage.setItem(KEY,v);apply(v);const a=document.getElementById('viewAsk');if(a)a.style.display='none';}
+  const top=document.querySelector('.top');
+  if(top){const b=document.createElement('button');b.id='viewBtn';b.className='viewbtn';b.onclick=()=>set(document.body.classList.contains('mobile')?'pc':'mobile');top.appendChild(b);}
+  const ask=document.createElement('div');ask.id='viewAsk';ask.innerHTML='<div class="bx"><h2>Como você quer ver o site?</h2><p>Dá pra trocar depois no botão do topo.</p><button class="p" id="vaM">📱 Celular</button><button id="vaP">🖥️ Computador</button></div>';
+  document.body.appendChild(ask);ask.querySelector('#vaM').onclick=()=>set('mobile');ask.querySelector('#vaP').onclick=()=>set('pc');
+  const cb=document.createElement('button');cb.id='closeFx';cb.textContent='▲ fechar jogo';cb.onclick=()=>{const o=document.querySelector('.fx.open .fxrow');if(o){o.click();window.scrollTo({top:0,behavior:'smooth'});}};document.body.appendChild(cb);
+  const saved=localStorage.getItem(KEY);
+  apply(saved);
+  if(!saved&&isSmall()) ask.style.display='flex';
+  window.addEventListener('resize',()=>apply(localStorage.getItem(KEY)));
+  new MutationObserver(()=>{cb.style.display=(document.body.classList.contains('mobile')&&document.querySelector('.fx.open'))?'':'none';}).observe(document.getElementById('list'),{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+})();
 </script>
 </body>
 </html>
