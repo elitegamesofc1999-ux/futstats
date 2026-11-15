@@ -51,13 +51,10 @@ def match(fid: int, venue: int = 0):
     if not f:
         raise HTTPException(404, "jogo não encontrado — abra a lista do dia primeiro")
     f = dict(f)
-    k = HISTORY_N * 2 if venue else HISTORY_N
-    home_hist = E.team_history(f["home_id"], f["league_id"], k)
-    away_hist = E.team_history(f["away_id"], f["league_id"], k)
+    H, A = _analyze(f, venue)
     return dict(
         fixture={k: f[k] for k in f if k not in ("stats_json", "players_json")}, venue=bool(venue),
-        home=summarize(home_hist, f["home_id"], "home" if venue else None, HISTORY_N),
-        away=summarize(away_hist, f["away_id"], "away" if venue else None, HISTORY_N),
+        home=H, away=A,
         h2h=E.h2h(f["home_id"], f["away_id"]), history_n=HISTORY_N, notes=[],
     )
 
@@ -74,7 +71,7 @@ def _analyze(f, venue=0):
     """Resumo (H, A) de um jogo, cacheado 15 min."""
     ck = (f["id"], venue)
     c = _an_cache.get(ck)
-    if c and time.time() - c[0] < 900:
+    if c and time.time() - c[0] < 1500:
         return c[1]
     k = HISTORY_N * 2 if venue else HISTORY_N
     H = summarize(E.team_history(f["home_id"], f["league_id"], k), f["home_id"], "home" if venue else None, HISTORY_N)
@@ -156,12 +153,9 @@ def nba_game(gid: int, pre: int = 0):
     if not g:
         raise HTTPException(404, "jogo não encontrado — abra a lista do dia primeiro")
     g = dict(g)
-    with ThreadPoolExecutor(2) as ex:
-        fh, fa = ex.submit(N.team_history, g["home_id"], HISTORY_N, bool(pre)), ex.submit(N.team_history, g["away_id"], HISTORY_N, bool(pre))
-        home_hist, away_hist = fh.result(), fa.result()
+    H, A = _nba_analyze(g, bool(pre))
     odds = N.game_odds(gid) if g["status"] != "FT" else (json.loads(g["odds_json"]) if g.get("odds_json") else None)
-    return dict(game={k: g[k] for k in g if k not in ("box_json", "odds_json")}, odds=odds, history_n=HISTORY_N,
-                home=N.summarize_team(home_hist, g["home_id"], HISTORY_N, bool(pre)), away=N.summarize_team(away_hist, g["away_id"], HISTORY_N, bool(pre)))
+    return dict(game={k: g[k] for k in g if k not in ("box_json", "odds_json")}, odds=odds, history_n=HISTORY_N, home=H, away=A)
 
 
 def _nba_game_markets(g):
@@ -270,17 +264,18 @@ NBA_LBL = dict(pts="Pontos", reb="Rebotes", ast="Assistências", tpm="Bolas de 3
 _nba_an_cache = {}
 
 
-def _nba_analyze(g):
-    c = _nba_an_cache.get(g["id"])
-    if c and time.time() - c[0] < 900:
+def _nba_analyze(g, pre=False):
+    ck = (g["id"], bool(pre))
+    c = _nba_an_cache.get(ck)
+    if c and time.time() - c[0] < 1500:
         return c[1]
     with ThreadPoolExecutor(2) as ex:
-        fh = ex.submit(N.team_history, g["home_id"], HISTORY_N)
-        fa = ex.submit(N.team_history, g["away_id"], HISTORY_N)
+        fh = ex.submit(N.team_history, g["home_id"], HISTORY_N, bool(pre))
+        fa = ex.submit(N.team_history, g["away_id"], HISTORY_N, bool(pre))
         hh, ah = fh.result(), fa.result()
-    H = N.summarize_team(hh, g["home_id"], HISTORY_N)
-    A = N.summarize_team(ah, g["away_id"], HISTORY_N)
-    _nba_an_cache[g["id"]] = (time.time(), (H, A))
+    H = N.summarize_team(hh, g["home_id"], HISTORY_N, bool(pre))
+    A = N.summarize_team(ah, g["away_id"], HISTORY_N, bool(pre))
+    _nba_an_cache[ck] = (time.time(), (H, A))
     return H, A
 
 
@@ -324,3 +319,199 @@ def best_nba(d: str | None = None):
                     picks.append(best)
     picks.sort(key=lambda x: -x["score"])
     return dict(date=d, picks=picks[:25])
+
+
+# ======================================================================
+#  🏈 NFL
+# ======================================================================
+import nfl as F  # noqa: E402
+
+_nfl_an_cache = {}
+_nfl_scr_cache = {}
+NFL_MIN_LINE = dict(pass_yds=149.5, pass_td=0.5, pass_cmp=14.5, pass_att=24.5, rush_yds=29.5, rush_att=7.5, rec=2.5, rec_yds=29.5, tgt=3.5,
+                    rr_yds=39.5, any_td=0.5, tackles=3.5, sacks=0.5, fgm=0.5, kpts=4.5)
+NFL_LBL = dict(F.PLAYER_STATS)
+
+
+@app.on_event("startup")
+def _startup_nfl():
+    F.init_db()
+
+
+@app.get("/nfl")
+def nfl_index():
+    return FileResponse(os.path.join(STATIC, "nfl.html"))
+
+
+@app.get("/api/nfl/today")
+def nfl_today(week: int | None = None, season: int | None = None):
+    w = F.week_games(week, season)
+    return dict(season=w["season"], week=w["week"], games=w["games"])
+
+
+@app.get("/api/nfl/markets")
+def nfl_markets():
+    return F.all_markets()
+
+
+def _nfl_analyze(g):
+    c = _nfl_an_cache.get(g["id"])
+    if c and time.time() - c[0] < 1500:
+        return c[1]
+    with ThreadPoolExecutor(2) as ex:
+        fh = ex.submit(F.team_history, g["home_id"], HISTORY_N)
+        fa = ex.submit(F.team_history, g["away_id"], HISTORY_N)
+        hh, ah = fh.result(), fa.result()
+    H = F.summarize_team(hh, g["home_id"], HISTORY_N)
+    A = F.summarize_team(ah, g["away_id"], HISTORY_N)
+    _nfl_an_cache[g["id"]] = (time.time(), (H, A))
+    return H, A
+
+
+@app.get("/api/nfl/game/{gid}")
+def nfl_game(gid: int):
+    with F.db() as con:
+        g = con.execute("SELECT * FROM games WHERE id=?", (gid,)).fetchone()
+    if not g:
+        raise HTTPException(404, "jogo não encontrado — abra a lista da semana primeiro")
+    g = dict(g)
+    H, A = _nfl_analyze(g)
+    odds = F.game_odds(gid) if g["status"] != "FT" else None
+    return dict(game={k: g[k] for k in g if k not in ("box_json", "odds_json")}, odds=odds, history_n=HISTORY_N, home=H, away=A)
+
+
+def _nfl_game_markets(g):
+    H, A = _nfl_analyze(g)
+    out = {}
+    for gi, (gh, ga) in enumerate(zip(H["frequencies"], A["frequencies"])):
+        for i, (ih, ia) in enumerate(zip(gh["items"], ga["items"])):
+            tn = ih["n"] + ia["n"]
+            out[f"{gi}_{i}"] = dict(home_hits=ih["hits"], home_n=ih["n"], away_hits=ia["hits"], away_n=ia["n"], pct=round(100 * (ih["hits"] + ia["hits"]) / tn) if tn else None)
+    return dict(**{k: g[k] for k in g if k not in ("box_json", "odds_json")}, markets=out,
+                avg=dict(total=(H["averages"]["total"]["value"], A["averages"]["total"]["value"]), pts=(H["averages"]["pts_for"]["value"], A["averages"]["pts_for"]["value"])))
+
+
+@app.get("/api/nfl/screener")
+def nfl_screener(week: int | None = None):
+    w = F.week_games(week)
+    key = f"{w['season']}:{w['week']}"
+    c = _nfl_scr_cache.get(key)
+    if c and time.time() - c[0] < 900:
+        return c[1]
+    with ThreadPoolExecutor(3) as ex:
+        res = list(ex.map(_nfl_game_markets, w["games"]))
+    out = dict(season=w["season"], week=w["week"], markets=F.all_markets(), games=res)
+    _nfl_scr_cache[key] = (time.time(), out)
+    return out
+
+
+@app.get("/api/nfl/best")
+def best_nfl(week: int | None = None):
+    w = F.week_games(week)
+    games = [g for g in w["games"] if g["status"] != "FT"]
+    with ThreadPoolExecutor(3) as ex:
+        res = list(ex.map(lambda g: (g, _nfl_analyze(g)), games))
+    picks = []
+    for g, (H, A) in res:
+        for side, S, tabbr, tname, tlogo in (("home", H, g["home_abbr"], g["home_name"], g["home_logo"]), ("away", A, g["away_abbr"], g["away_name"], g["away_logo"])):
+            for p in S["players"]:
+                n = p["games"]
+                if n < 6 or p["old_games"] > 5 or (p.get("status") and p["status"] != "Active"):
+                    continue
+                best = None
+                for stat in p["show"]:
+                    if stat not in NFL_MIN_LINE:
+                        continue
+                    st = p["stats"][stat]
+                    line = st["safe8"]
+                    if line is None or line < NFL_MIN_LINE[stat]:
+                        continue
+                    vals = [x[stat] for x in p["log"]]
+                    hits = sum(1 for v in vals if v > line)
+                    pct = round(100 * hits / n)
+                    margin = (st["avg"] - line) / line
+                    score = pct + min(25, margin * 50)
+                    cand = dict(kind="player", game_id=g["id"], date=g["date"], matchup=f"{g['away_abbr']} @ {g['home_abbr']}", player=p["name"], pos=p["pos"],
+                                team=tabbr, team_name=tname, team_logo=tlogo, opp=(g["away_abbr"] if side == "home" else g["home_abbr"]),
+                                stat=stat, label=f"Over {line} {NFL_LBL[stat]}", line=line, hits=hits, n=n, pct=pct, avg=st["avg"], margin=round(margin * 100),
+                                status="", old_games=p["old_games"], score=round(score, 1), log=p["log"])
+                    if best is None or cand["score"] > best["score"]:
+                        best = cand
+                if best:
+                    picks.append(best)
+    picks.sort(key=lambda x: -x["score"])
+    return dict(season=w["season"], week=w["week"], picks=picks[:30])
+
+
+# ======================================================================
+#  🔥 PRÉ-AQUECIMENTO — calcula os jogos do dia em segundo plano
+#  (quando alguém clica, a resposta já está pronta)
+# ======================================================================
+import threading  # noqa: E402
+
+WARM_EVERY = int(os.environ.get("WARM_EVERY", "1200"))  # segundos
+_warm_state = dict(running=False, last=None, done=0, total=0)
+
+
+def _warm_once():
+    today = date.today().isoformat()
+    jobs = []
+    try:
+        for f in E.fixtures_by_date(today):
+            if f["league_id"] in E.DEFAULT_LEAGUES and f["status"] != "FT":
+                jobs.append(("foot", f))
+    except Exception as e:
+        print("warm foot list:", e)
+    try:
+        for g in N.games_by_date(today):
+            if g["status"] != "FT":
+                jobs.append(("nba", g))
+    except Exception as e:
+        print("warm nba list:", e)
+    try:
+        for g in F.week_games()["games"]:
+            if g["status"] != "FT":
+                jobs.append(("nfl", g))
+    except Exception as e:
+        print("warm nfl list:", e)
+    _warm_state.update(running=True, total=len(jobs), done=0)
+
+    def run(job):
+        kind, x = job
+        try:
+            if kind == "foot":
+                _analyze(x, 0)
+            elif kind == "nfl":
+                _nfl_analyze(x)
+            else:
+                _nba_analyze(x)
+        except Exception as e:
+            print("warm", kind, x.get("id"), e)
+        _warm_state["done"] += 1
+
+    with ThreadPoolExecutor(3) as ex:
+        list(ex.map(run, jobs))
+    _warm_state.update(running=False, last=time.time())
+    print(f"warm-up ok: {len(jobs)} jogos")
+
+
+def _warm_loop():
+    time.sleep(5)
+    while True:
+        try:
+            _warm_once()
+        except Exception as e:
+            print("warm loop:", e)
+        time.sleep(WARM_EVERY)
+
+
+@app.on_event("startup")
+def _startup_warm():
+    if os.environ.get("NO_WARM"):
+        return
+    threading.Thread(target=_warm_loop, daemon=True).start()
+
+
+@app.get("/api/warm")
+def warm_status():
+    return _warm_state
