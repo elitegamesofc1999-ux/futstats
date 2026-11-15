@@ -444,6 +444,103 @@ def best_nfl(week: int | None = None):
 
 
 # ======================================================================
+#  🥊 UFC
+# ======================================================================
+import ufc as U  # noqa: E402
+
+_ufc_cache = {}
+
+
+@app.on_event("startup")
+def _startup_ufc():
+    U.init_db()
+
+
+@app.get("/ufc")
+def ufc_index():
+    return FileResponse(os.path.join(STATIC, "ufc.html"))
+
+
+@app.get("/api/ufc/events")
+def ufc_events():
+    return dict(events=U.events())
+
+
+@app.get("/api/ufc/card/{eid}")
+def ufc_card(eid: int):
+    try:
+        return U.event_card(eid)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+
+
+def _ufc_fight(eid, fid):
+    c = _ufc_cache.get(fid)
+    if c and time.time() - c[0] < 1800:
+        return c[1]
+    d = U.fight_detail(eid, fid)
+    _ufc_cache[fid] = (time.time(), d)
+    return d
+
+
+@app.get("/api/ufc/fight/{eid}/{fid}")
+def ufc_fight(eid: int, fid: int):
+    try:
+        return _ufc_fight(eid, fid)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+
+
+UFC_STRIKE_MIN = 19.5
+
+
+@app.get("/api/ufc/best/{eid}")
+def ufc_best(eid: int):
+    card = U.event_card(eid)
+    fights = [f for f in card["fights"] if f["status"] != "FT"]
+    with ThreadPoolExecutor(3) as ex:
+        res = list(ex.map(lambda f: _ufc_fight(eid, f["id"]), fights))
+    picks = []
+    for d in res:
+        f, A, B = d["fight"], d["a"], d["b"]
+        matchup = f"{A['profile'].get('name') or f['fighters'][0]['name']} x {B['profile'].get('name') or f['fighters'][1]['name']}"
+        base = dict(fight_id=f["id"], matchup=matchup, weight=f["weight"], segment=f.get("segment", ""), order=f.get("order"))
+        # mercados da LUTA (os dois lutadores)
+        for gi, (ga, gb) in enumerate(zip(A["frequencies"], B["frequencies"])):
+            if ga["group"] not in ("Duração da luta",):
+                continue
+            for ia, ib in zip(ga["items"], gb["items"]):
+                if ia["n"] >= 4 and ib["n"] >= 4 and ia["pct"] >= 75 and ib["pct"] >= 75:
+                    pct = round(100 * (ia["hits"] + ib["hits"]) / (ia["n"] + ib["n"]))
+                    if pct >= 80:
+                        picks.append(dict(base, kind="fight", label=ia["label"], pct=pct, hits=ia["hits"] + ib["hits"], n=ia["n"] + ib["n"],
+                                          a_hits=ia["hits"], a_n=ia["n"], b_hits=ib["hits"], b_n=ib["n"], score=pct + min(ia["pct"], ib["pct"]) / 10,
+                                          a_name=A["profile"].get("name"), b_name=B["profile"].get("name"), a_head=A["profile"].get("headshot"), b_head=B["profile"].get("headshot"),
+                                          log=[dict(date=x["date"], opp=x["opp"], v=x["rounds_done"]) for x in A["fights"]], log_b=[dict(date=x["date"], opp=x["opp"], v=x["rounds_done"]) for x in B["fights"]]))
+        # mercados do LUTADOR
+        for side, S, O in (("a", A, B), ("b", B, A)):
+            name = S["profile"].get("name") or "?"
+            st = S["stats"]["ss"]
+            if st["n"] >= 4 and st["safe8"] is not None and st["safe8"] >= UFC_STRIKE_MIN:
+                vals = [x["ss"] for x in S["fights"] if x["has_stats"]]
+                hits = sum(1 for v in vals if v > st["safe8"])
+                pct = round(100 * hits / len(vals))
+                margin = (st["avg"] - st["safe8"]) / st["safe8"]
+                picks.append(dict(base, kind="fighter", fighter=name, head=S["profile"].get("headshot"), stat="ss", label=f"Over {st['safe8']} golpes significativos", line=st["safe8"],
+                                  pct=pct, hits=hits, n=len(vals), avg=st["avg"], score=pct + min(20, margin * 40),
+                                  log=[dict(date=x["date"], opp=x["opp"], v=x["ss"]) for x in S["fights"] if x["has_stats"]]))
+            # vitória por KO/finalização com alta frequência + favorito nas odds
+            fr = {i["label"]: i for g in S["frequencies"] for i in g["items"]}
+            w = fr.get("Venceu")
+            if w and w["n"] >= 5 and w["pct"] >= 80 and d["odds"] and ((side == "a" and (d["odds"].get("ml_a") or 0) < 0) or (side == "b" and (d["odds"].get("ml_b") or 0) < 0)):
+                picks.append(dict(base, kind="fighter", fighter=name, head=S["profile"].get("headshot"), stat="win", label=f"{name} vence", line=None,
+                                  pct=w["pct"], hits=w["hits"], n=w["n"], avg=None, score=w["pct"] - 5,
+                                  log=[dict(date=x["date"], opp=x["opp"], v=1 if x["win"] else 0) for x in S["fights"]]))
+    picks.sort(key=lambda x: -x["score"])
+    return dict(event={k: v for k, v in card.items() if k != "fights"}, picks=picks[:25])
+
+
+# ======================================================================
 #  🔥 PRÉ-AQUECIMENTO — calcula os jogos do dia em segundo plano
 #  (quando alguém clica, a resposta já está pronta)
 # ======================================================================
@@ -474,6 +571,14 @@ def _warm_once():
                 jobs.append(("nfl", g))
     except Exception as e:
         print("warm nfl list:", e)
+    try:
+        nxt = [e for e in U.events() if e["status"] != "FT"][:1]
+        for e in nxt:
+            for f in U.event_card(e["id"])["fights"]:
+                if f["status"] != "FT":
+                    jobs.append(("ufc", (e["id"], f["id"])))
+    except Exception as e:
+        print("warm ufc list:", e)
     _warm_state.update(running=True, total=len(jobs), done=0)
 
     def run(job):
@@ -483,10 +588,12 @@ def _warm_once():
                 _analyze(x, 0)
             elif kind == "nfl":
                 _nfl_analyze(x)
+            elif kind == "ufc":
+                _ufc_fight(*x)
             else:
                 _nba_analyze(x)
         except Exception as e:
-            print("warm", kind, x.get("id"), e)
+            print("warm", kind, x, e)
         _warm_state["done"] += 1
 
     with ThreadPoolExecutor(3) as ex:
