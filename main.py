@@ -9,6 +9,15 @@ import espn as E
 from analysis import summarize, all_markets
 from concurrent.futures import ThreadPoolExecutor
 import time
+import threading
+from collections import defaultdict
+_locks = defaultdict(threading.Lock)
+_locks_guard = threading.Lock()
+
+
+def _lock(key):
+    with _locks_guard:
+        return _locks[key]
 
 _screener_cache = {}
 
@@ -68,16 +77,20 @@ _an_cache = {}
 
 
 def _analyze(f, venue=0):
-    """Resumo (H, A) de um jogo, cacheado 15 min."""
+    """Resumo (H, A) de um jogo, cacheado 25 min. Um cálculo por vez por jogo (quem chegar depois espera)."""
     ck = (f["id"], venue)
     c = _an_cache.get(ck)
     if c and time.time() - c[0] < 1500:
         return c[1]
-    k = HISTORY_N * 2 if venue else HISTORY_N
-    H = summarize(E.team_history(f["home_id"], f["league_id"], k), f["home_id"], "home" if venue else None, HISTORY_N)
-    A = summarize(E.team_history(f["away_id"], f["league_id"], k), f["away_id"], "away" if venue else None, HISTORY_N)
-    _an_cache[ck] = (time.time(), (H, A))
-    return H, A
+    with _lock(("foot",) + ck):
+        c = _an_cache.get(ck)
+        if c and time.time() - c[0] < 1500:
+            return c[1]
+        k = HISTORY_N * 2 if venue else HISTORY_N
+        H = summarize(E.team_history(f["home_id"], f["league_id"], k), f["home_id"], "home" if venue else None, HISTORY_N)
+        A = summarize(E.team_history(f["away_id"], f["league_id"], k), f["away_id"], "away" if venue else None, HISTORY_N)
+        _an_cache[ck] = (time.time(), (H, A))
+        return H, A
 
 
 def _fixture_markets(f, venue=0):
@@ -269,14 +282,18 @@ def _nba_analyze(g, pre=False):
     c = _nba_an_cache.get(ck)
     if c and time.time() - c[0] < 1500:
         return c[1]
-    with ThreadPoolExecutor(2) as ex:
-        fh = ex.submit(N.team_history, g["home_id"], HISTORY_N, bool(pre))
-        fa = ex.submit(N.team_history, g["away_id"], HISTORY_N, bool(pre))
-        hh, ah = fh.result(), fa.result()
-    H = N.summarize_team(hh, g["home_id"], HISTORY_N, bool(pre))
-    A = N.summarize_team(ah, g["away_id"], HISTORY_N, bool(pre))
-    _nba_an_cache[ck] = (time.time(), (H, A))
-    return H, A
+    with _lock(("nba",) + ck):
+        c = _nba_an_cache.get(ck)
+        if c and time.time() - c[0] < 1500:
+            return c[1]
+        with ThreadPoolExecutor(2) as ex:
+            fh = ex.submit(N.team_history, g["home_id"], HISTORY_N, bool(pre))
+            fa = ex.submit(N.team_history, g["away_id"], HISTORY_N, bool(pre))
+            hh, ah = fh.result(), fa.result()
+        H = N.summarize_team(hh, g["home_id"], HISTORY_N, bool(pre))
+        A = N.summarize_team(ah, g["away_id"], HISTORY_N, bool(pre))
+        _nba_an_cache[ck] = (time.time(), (H, A))
+        return H, A
 
 
 @app.get("/api/nba/best")
@@ -355,6 +372,14 @@ def nfl_markets():
 
 
 def _nfl_analyze(g):
+    c = _nfl_an_cache.get(g["id"])
+    if c and time.time() - c[0] < 1500:
+        return c[1]
+    with _lock(("nfl", g["id"])):
+        return _nfl_analyze_locked(g)
+
+
+def _nfl_analyze_locked(g):
     c = _nfl_an_cache.get(g["id"])
     if c and time.time() - c[0] < 1500:
         return c[1]
@@ -478,9 +503,13 @@ def _ufc_fight(eid, fid):
     c = _ufc_cache.get(fid)
     if c and time.time() - c[0] < 1800:
         return c[1]
-    d = U.fight_detail(eid, fid)
-    _ufc_cache[fid] = (time.time(), d)
-    return d
+    with _lock(("ufc", fid)):
+        c = _ufc_cache.get(fid)
+        if c and time.time() - c[0] < 1800:
+            return c[1]
+        d = U.fight_detail(eid, fid)
+        _ufc_cache[fid] = (time.time(), d)
+        return d
 
 
 @app.get("/api/ufc/fight/{eid}/{fid}")
@@ -547,24 +576,24 @@ def ufc_best(eid: int):
 import threading  # noqa: E402
 
 WARM_EVERY = int(os.environ.get("WARM_EVERY", "1200"))  # segundos
+WARM_PAUSE = float(os.environ.get("WARM_PAUSE", "1.5"))  # pausa entre jogos (deixa CPU pra quem clica)
 _warm_state = dict(running=False, last=None, done=0, total=0)
 
 
 def _warm_once():
     today = date.today().isoformat()
     jobs = []
+    try:  # NBA primeiro (mais pesado e mais usado)
+        for g in N.games_by_date(today):
+            jobs.append(("nba", g))
+    except Exception as e:
+        print("warm nba list:", e)
     try:
         for f in E.fixtures_by_date(today):
-            if f["league_id"] in E.DEFAULT_LEAGUES and f["status"] != "FT":
+            if f["league_id"] in E.DEFAULT_LEAGUES:
                 jobs.append(("foot", f))
     except Exception as e:
         print("warm foot list:", e)
-    try:
-        for g in N.games_by_date(today):
-            if g["status"] != "FT":
-                jobs.append(("nba", g))
-    except Exception as e:
-        print("warm nba list:", e)
     try:
         for g in F.week_games()["games"]:
             if g["status"] != "FT":
@@ -580,9 +609,7 @@ def _warm_once():
     except Exception as e:
         print("warm ufc list:", e)
     _warm_state.update(running=True, total=len(jobs), done=0)
-
-    def run(job):
-        kind, x = job
+    for kind, x in jobs:  # 1 por vez, com pausa: quem clica tem prioridade
         try:
             if kind == "foot":
                 _analyze(x, 0)
@@ -595,11 +622,9 @@ def _warm_once():
         except Exception as e:
             print("warm", kind, x, e)
         _warm_state["done"] += 1
-
-    with ThreadPoolExecutor(3) as ex:
-        list(ex.map(run, jobs))
+        time.sleep(WARM_PAUSE)
     _warm_state.update(running=False, last=time.time())
-    print(f"warm-up ok: {len(jobs)} jogos")
+    print(f"warm-up ok: {len(jobs)} jogos", flush=True)
 
 
 def _warm_loop():
