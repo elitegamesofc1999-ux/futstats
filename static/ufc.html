@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FutStats UFC</title>
+<style>
+  :root{--bg:#0d1117;--card:#141a24;--card2:#1a2230;--line:#232c3d;--txt:#c6cdd8;--mut:#7f8a9c;--acc:#22c55e;--acc2:#f97316;--blue:#3b82f6;--warn:#f59e0b;--red:#ef4444}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt);font-size:17px}
+  b,strong,h1,h2,h4{color:#d7dde6}
+  header{position:sticky;top:0;z-index:5;background:rgba(11,15,23,.95);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .wrap{max-width:1800px;margin:0 auto;padding:0 28px}
+  .top{display:flex;align-items:center;gap:16px;padding:14px 0;flex-wrap:wrap}
+  .top h1{margin:0;font-size:26px}
+  .top h1 span{color:var(--acc2)}
+  .top small{color:var(--mut);font-size:14px}
+  .sp{flex:1}
+  .seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px}
+  .seg button{background:transparent;color:var(--mut);border:0;border-radius:8px;padding:9px 16px;font-size:15px;font-weight:600;cursor:pointer}
+  .seg button.on{background:var(--acc2);color:#fff}
+  input[type=date],input[type=number],select{background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:15px}
+  .modes{display:flex;gap:10px;padding:16px 0 12px}
+  .modes button{flex:1;background:var(--card);border:1px solid var(--line);color:var(--mut);border-radius:12px;padding:16px;font-size:18px;font-weight:700;cursor:pointer}
+  .modes button.star.on{background:#2a2208;border-color:var(--warn)}
+  .pick{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin-bottom:10px;display:grid;grid-template-columns:minmax(220px,1.4fr) minmax(180px,1fr) 90px minmax(220px,1.2fr);gap:16px;align-items:center}
+  .badge{font-size:11px;padding:2px 7px;border-radius:999px;font-weight:700;vertical-align:middle}.badge.ok{background:#14532d;color:#86efac}.badge.warn{background:#4a3306;color:#fcd34d}
+  .pick .rank{font-size:12px;color:var(--mut)}.pick .who{font-size:18px;font-weight:800}.pick .who small{display:block;font-weight:400;color:var(--mut);font-size:13px}
+  .pick .mk{font-size:17px;font-weight:700;color:#a7f3c4}.pick .mk small{display:block;font-weight:400;color:var(--mut);font-size:13px}
+  .pick .hr{font-size:26px;font-weight:800;text-align:center}.pick .hr small{display:block;font-size:12px;color:var(--mut);font-weight:400}
+  @media(max-width:800px){.pick{grid-template-columns:1fr 1fr}}
+  .modes button.on{background:#2a1a0a;border-color:var(--acc2);color:var(--txt)}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;padding:10px 0}
+  .tab{background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:999px;padding:10px 18px;font-size:15px;font-weight:600;cursor:pointer}
+  .tab.on{background:var(--acc2);border-color:var(--acc2);color:#fff}
+  .sub{display:flex;gap:8px;flex-wrap:wrap;padding:0 0 14px;align-items:center}
+  .chip{background:transparent;border:1px solid var(--line);color:var(--mut);border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer}
+  .chip.on{background:#2a1a0a;border-color:var(--acc2);color:var(--txt);font-weight:600}
+  .hint{color:var(--mut);font-size:13px}
+  .lghead{margin:22px 0 8px;font-size:14px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;font-weight:700}
+  .fx{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:10px;overflow:hidden}
+  .fx.open{border-color:var(--acc2)}
+  .fxrow{display:grid;grid-template-columns:90px 1fr 150px 1fr auto;align-items:center;gap:14px;padding:16px 20px;cursor:pointer}
+  .fxrow:hover{background:var(--card2)}
+  .fxrow .time{font-weight:800;font-size:20px}
+  .fxrow .time small{display:block;font-size:12px;color:var(--mut);font-weight:400}
+  .team{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:600}
+  .team.r{justify-content:flex-end;text-align:right}
+  .team img{width:36px;height:36px;object-fit:contain}
+  .mid{text-align:center;color:var(--mut);font-size:13px}
+  .mid b{display:block;font-size:18px;color:var(--txt)}
+  .arrow{color:var(--mut);font-size:18px;transition:.2s}
+  .fx.open .arrow{transform:rotate(180deg);color:var(--acc2)}
+  .big{font-size:26px;font-weight:800}
+  .pct{font-weight:800}.pct.hi{color:var(--acc)}.pct.mid{color:var(--warn)}.pct.lo{color:var(--red)}
+  .mini{font-size:13px;color:var(--mut);margin-top:4px}.mini b{color:var(--txt)}
+  .detail{border-top:1px solid var(--line);background:#0e1420;padding:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:14px}
+  h3{margin:0 0 14px;font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--mut)}
+  .note{background:#2a1f0a;border:1px solid #6b4a0a;color:#fbd38d;border-radius:10px;padding:10px 14px;font-size:14px;margin-bottom:14px}
+  .ins{display:flex;flex-wrap:wrap;gap:8px}
+  .ins span{background:#102a1a;border:1px solid #1b4d2e;color:#a7f3c4;border-radius:8px;padding:7px 12px;font-size:14px}
+  .ins span.away{background:#0f1f3a;border-color:#1e3a6b;color:#bfdbfe}
+  .cmp{display:grid;grid-template-columns:1fr 220px 1fr;gap:8px 14px;align-items:center;font-size:15px}
+  .cmp .lbl{text-align:center;color:var(--mut);font-size:14px}
+  .cmp .v{display:flex;align-items:center;gap:10px}.cmp .v.r{flex-direction:row-reverse}
+  .cmp .v b{min-width:48px;text-align:center}
+  .cmp .v .bar{flex:1;height:10px;background:var(--line);border-radius:6px;overflow:hidden}
+  .cmp .v .bar i{display:block;height:100%;background:var(--blue)}.cmp .v.r .bar i{margin-left:auto}
+  .cmp .hd{font-weight:800;font-size:17px}
+  .hits{color:var(--mut);font-size:13px}
+  .dots{display:flex;gap:4px}.dots i{width:12px;height:12px;border-radius:3px;background:var(--line)}.dots i.on{background:var(--acc)}
+  .v.r .dots{flex-direction:row-reverse}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .two h4{margin:0 0 8px;font-size:16px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+  th{color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase}
+  td.num,th.num{text-align:right}
+  tr.pl{cursor:pointer}tr.pl:hover{background:var(--card2)}
+  .safe{color:var(--acc);font-weight:700}
+  .plog{background:#0b0f17;padding:12px;border-radius:10px;margin:6px 0 12px}
+  .calc{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .calc .out{font-size:18px;font-weight:800}
+  .res{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:5px;font-size:12px;font-weight:700}
+  .res.V{background:#14532d;color:#86efac}.res.D{background:#7f1d1d;color:#fca5a5}
+  .lu{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .lu h4{margin:0 0 8px;font-size:16px;display:flex;align-items:center;gap:8px}
+  .lu .st{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--line);color:var(--mut)}
+  .lu .st.ok{background:#14532d;color:#86efac}.lu .st.exp{background:#3b2a0a;color:#fbd38d}
+  .pl5{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+  .pl5 div{display:flex;align-items:center;gap:10px;background:#0b0f17;border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:15px}
+  .pl5 .pos{min-width:28px;color:var(--mut);font-size:12px;font-weight:700}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--acc);display:inline-block}
+  .dot.y{background:var(--warn)}.dot.r{background:var(--red)}.dot.g{background:var(--mut)}
+  .inj{font-size:14px;display:flex;flex-direction:column;gap:4px}
+  .inj span.s{font-weight:700}.inj .o{color:var(--red)}.inj .q{color:var(--warn)}.inj .p{color:var(--acc)}
+  .tagb{font-size:11px;padding:1px 6px;border-radius:6px;margin-left:4px;vertical-align:middle}
+  .tagb.t{background:#14532d;color:#86efac}.tagb.q{background:#3b2a0a;color:#fbd38d}.tagb.o{background:#7f1d1d;color:#fca5a5}
+  .chart{display:flex;align-items:flex-end;gap:3px;height:64px;position:relative;min-width:150px;padding-top:14px;box-sizing:border-box}
+  .chart i{flex:1;background:var(--acc);border-radius:2px 2px 0 0;min-height:3px;position:relative}
+  .chart i b{position:absolute;bottom:100%;left:0;right:0;text-align:center;font-size:11px;font-weight:700;color:#d7dde6;line-height:1.1;margin-bottom:2px;pointer-events:none}
+  .chart i.no{background:var(--red)}.chart i.z{background:#3f3f46}
+  .clab{display:flex;gap:3px;margin-top:3px}
+  .clab span{flex:1;text-align:center;font-size:9px;color:var(--mut);overflow:hidden;letter-spacing:-.3px;line-height:1.1}
+  .clab img{width:16px;height:16px;object-fit:contain;display:inline-block}
+  .chart .ln{position:absolute;left:0;right:0;border-top:2px dashed rgba(255,255,255,.55);pointer-events:none}
+  .prow{display:grid;grid-template-columns:minmax(170px,1.3fr) 60px 80px 70px minmax(160px,1fr);gap:12px;align-items:center;padding:9px 6px;border-bottom:1px solid var(--line);cursor:pointer}
+  .prow:hover{background:var(--card2)}
+  .prow .nm{font-weight:700;font-size:15px}.prow .nm small{color:var(--mut);font-weight:400}
+  .prow input{width:62px;padding:5px 6px;font-size:14px;text-align:center;border-radius:8px}
+  .prow .hr{font-size:20px;font-weight:800;text-align:center}
+  .prow .hr small{display:block;font-size:11px;color:var(--mut);font-weight:400;letter-spacing:.5px}
+  .phead{display:grid;grid-template-columns:minmax(170px,1.3fr) 60px 80px 70px minmax(160px,1fr);gap:12px;padding:0 6px 6px;font-size:11px;color:var(--mut);text-transform:uppercase}
+  .statsel{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  @media(max-width:800px){.prow,.phead{grid-template-columns:1fr 56px 70px 60px 120px;gap:6px}}
+  .empty,.loading{color:var(--mut);text-align:center;padding:50px 20px;font-size:16px}
+  .odds{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+  .odds .o{background:#0b0f17;border:1px solid var(--line);border-radius:10px;padding:10px 16px}
+  .odds .o b{font-size:22px;display:block}
+  @media(max-width:800px){.wrap{padding:0 12px}.fxrow{grid-template-columns:70px 1fr auto;gap:8px;padding:12px}.fxrow .mid{display:none}.team.r{justify-content:flex-start;text-align:left}.fxrow .t2{grid-column:2}.cmp{grid-template-columns:1fr 130px 1fr;font-size:13px}.two{grid-template-columns:1fr}}
+
+  .fxrow.ufc{grid-template-columns:70px 1fr 90px 1fr auto}
+  .fxrow .fighter{display:flex;align-items:center;gap:10px;font-size:19px;font-weight:600}
+  .fxrow .fighter img.h{width:48px;height:48px;border-radius:50%;object-fit:cover;object-position:top;background:#1a2230}
+  .fxrow .fighter img.f{width:20px;height:14px;object-fit:cover;border-radius:2px}
+  .fxrow .fighter small{display:block;color:var(--mut);font-size:13px;font-weight:400}
+  .fxrow .fighter.r{justify-content:flex-end;text-align:right}
+  .fxrow .wc{text-align:center;color:var(--mut);font-size:13px;line-height:1.3}
+  .fxrow .wc b{display:block;color:var(--txt);font-size:15px}
+  .prof{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .pcard{display:flex;gap:16px;background:#0b0f17;border:1px solid var(--line);border-radius:14px;padding:16px}
+  .pcard img.h{width:96px;height:96px;border-radius:50%;object-fit:cover;object-position:top;background:#1a2230}
+  .pcard .nm{font-size:22px;font-weight:800}
+  .pcard .rec{font-size:16px;color:var(--acc);font-weight:700}
+  .pcard .kv{display:grid;grid-template-columns:auto auto;gap:3px 14px;font-size:14px;color:var(--mut);margin-top:6px}
+  .pcard .kv b{color:var(--txt);font-weight:600}
+  .seq{display:flex;gap:4px;margin-top:8px}
+  .seq span{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:var(--line)}
+  .seq span.W{background:#14532d;color:#86efac}.seq span.L{background:#5a1d1d;color:#fca5a5}.seq span.N{background:#3f3f46;color:#d4d4d8}
+  .pick .who img.h{width:34px;height:34px;border-radius:50%;object-fit:cover;object-position:top;vertical-align:middle;background:#1a2230}
+  .evsel{background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;max-width:420px}
+</style>
+</head>
+<body>
+<header><div class="wrap"><div class="top">
+  <h1>🥊 Fut<span>Stats</span> UFC</h1><small>o que mais se repete nas últimas lutas</small>
+  <div class="seg" style="margin-left:8px"><button onclick="location.href='/'">⚽ Futebol</button><button onclick="location.href='/nba'">🏀 NBA</button><button onclick="location.href='/nfl'">🏈 NFL</button><button class="on">🥊 UFC</button></div>
+  <span class="sp"></span>
+  <span class="hint">Evento:</span> <select id="evSel" class="evsel"></select>
+</div></div></header>
+
+<main class="wrap">
+  <div class="modes"><button class="on" id="modeGames">🥊 Card do evento</button><button id="modeBest" class="star">⭐ A boa do evento</button></div>
+  <div id="list"><div class="loading">Carregando eventos…</div></div>
+</main>
+
+<script>
+const $=s=>document.querySelector(s);
+const fmt=n=>n==null?'–':(Number.isInteger(n)?n:(+n).toFixed(1));
+const pctCls=p=>p>=70?'hi':p>=50?'mid':'lo';
+const dfull=iso=>new Date(iso).toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit'})+' · '+new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+const dshort=s=>s.split('-').reverse().join('/');
+const STATS=[['ss','Golpes significativos'],['ssa','Golpes sig. tentados'],['ts','Golpes totais'],['td','Quedas'],['tda','Quedas tentadas'],['kd','Knockdowns'],['ctrl_min','Controle (min)'],['rounds_done','Duração (rounds)'],['opp_ss','Golpes sofridos'],['sub_att','Tent. finalização']];
+const DEF_LINE={ss:29.5,ssa:59.5,ts:39.5,td:0.5,tda:1.5,kd:0.5,ctrl_min:1.5,rounds_done:1.5,opp_ss:29.5,sub_att:0.5};
+let state={events:[],ev:null,card:null,mode:'games',open:null,cache:{},best:null,stat:'ss',lines:{}};
+
+async function fetchRetry(url,tries=4){
+  for(let i=0;i<tries;i++){
+    try{const r=await fetch(url);if(r.ok)return await r.json();}catch(e){}
+    $('#list').innerHTML='<div class="loading">⏳ Servidor acordando… tentando de novo ('+(i+1)+'/'+tries+')</div>';
+    await new Promise(r=>setTimeout(r,4000*(i+1)));
+  }
+  try{return await (await fetch(url)).json()}catch(e){return null}
+}
+async function loadEvents(){
+  const j=await fetchRetry('/api/ufc/events'); state.events=(j&&j.events)||[];
+  const sel=$('#evSel'); sel.innerHTML=state.events.map(e=>`<option value="${e.id}">${e.name} — ${new Date(e.date).toLocaleDateString('pt-BR')}${e.status==='FT'?' (encerrado)':e.status==='LIVE'?' 🔴':''}</option>`).join('');
+  const nxt=state.events.find(e=>e.status!=='FT')||state.events[state.events.length-1];
+  if(!nxt){$('#list').innerHTML='<div class="empty">Nenhum evento encontrado.</div>';return}
+  state.ev=nxt.id; sel.value=nxt.id; await loadCard();
+}
+async function loadCard(){
+  state.open=null; state.cache={}; state.best=null;
+  $('#list').innerHTML='<div class="loading">Carregando card…</div>';
+  state.card=await fetchRetry('/api/ufc/card/'+state.ev); render();
+}
+function setMode(m){state.mode=m;state.open=null;$('#modeGames').classList.toggle('on',m==='games');$('#modeBest').classList.toggle('on',m==='best');m==='best'?loadBest():render();}
+function render(){state.mode==='best'?renderBest():renderCard();}
+
+function fighterCell(f,right){
+  return `<div class="fighter ${right?'r':''}">${right?'':`<img class="h" src="${f.headshot}" onerror="this.style.visibility='hidden'">`}
+    <div><div>${f.flag?`<img class="f" src="${f.flag}">`:''} ${f.name}${f.winner?' <span class="badge ok">venceu</span>':''}</div><small>${f.record||''}</small></div>
+    ${right?`<img class="h" src="${f.headshot}" onerror="this.style.visibility='hidden'">`:''}</div>`;
+}
+function row(f){
+  const [a,b]=f.fighters; const fin=f.status==='FT';
+  return `<div class="fx ${state.open===f.id?'open':''}" id="fx${f.id}">
+    <div class="fxrow ufc" data-id="${f.id}">
+      <div class="time">#${f.order}<small>${f.rounds} rounds</small></div>
+      ${fighterCell(a)}
+      <div class="wc"><b>${f.weight}</b>${fin?`Final · R${f.period||''} ${f.clock||''}`:'vs'}</div>
+      ${fighterCell(b,true)}
+      <span class="arrow">▼</span>
+    </div>
+    <div class="detail" id="det${f.id}" style="display:${state.open===f.id?'':'none'}"></div></div>`;
+}
+function renderCard(){
+  const c=state.card; if(!c||!c.fights||!c.fights.length){$('#list').innerHTML='<div class="empty">Card ainda não divulgado.</div>';return}
+  let html=`<div class="note">🥊 <b>${c.name}</b> · ${dfull(c.date)}${c.venue?' · '+c.venue:''} · ${c.n_fights} lutas · horário de Brasília (início do evento)</div>`,last=null;
+  for(const f of c.fights){const seg=f.segment||'Card';if(seg!==last){html+=`<div class="lghead">${seg==='Main Card'?'⭐ Card principal':seg==='Prelims'?'Preliminares':seg==='Early Prelims'?'Preliminares iniciais':seg}</div>`;last=seg;}html+=row(f);}
+  $('#list').innerHTML=html; bind(); if(state.open) fill(state.open);
+}
+function bind(){$('#list').querySelectorAll('.fxrow').forEach(e=>e.onclick=()=>toggle(+e.dataset.id));}
+function toggle(id){if(state.open===id){state.open=null;render();return}state.open=id;render();const el=document.getElementById('fx'+id);if(el)setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),50);}
+async function fill(id){
+  const box=document.getElementById('det'+id); if(!box) return;
+  if(state.cache[id]){box.innerHTML=renderFight(state.cache[id]);bindCharts(box,state.cache[id]);return}
+  box.innerHTML='<div class="loading">⏳ Buscando as últimas lutas de cada lutador…</div>';
+  const m=await fetch(`/api/ufc/fight/${state.ev}/${id}`).then(r=>r.json()).catch(()=>null);
+  if(!m){box.innerHTML='<div class="empty">Erro ao carregar.</div>';return}
+  state.cache[id]=m; if(state.open===id){box.innerHTML=renderFight(m);bindCharts(box,m);}
+}
+function profCard(S,f){
+  const p=S.profile,s=S.summary;
+  return `<div class="pcard"><img class="h" src="${p.headshot||f.headshot}" onerror="this.style.visibility='hidden'">
+    <div style="flex:1"><div class="nm">${p.flag?`<img src="${p.flag}" style="width:24px;height:16px;object-fit:cover;border-radius:2px;vertical-align:middle">`:''} ${p.name||f.name}</div>
+      <div class="rec">${p.record||f.record||''} <span class="hint">· KO ${p.ko||'–'} · SUB ${p.sub||'–'}</span></div>
+      <div class="kv"><span>Altura <b>${p.height||'–'}</b></span><span>Envergadura <b>${p.reach||'–'}</b></span><span>Base <b>${p.stance||'–'}</b></span><span>Idade <b>${p.age||'–'}</b></span><span>Categoria <b>${p.weight_class||'–'}</b></span><span>Última luta <b>${s.last_date?dshort(s.last_date):'–'}</b></span></div>
+      <div class="seq" title="últimas lutas (mais recente à esquerda)">${S.fights.map(x=>`<span class="${x.win?'W':(x.code==='NC'||x.code==='DRAW')?'N':'L'}" title="${dshort(x.date)} vs ${x.opp} — ${x.method} R${x.round} ${x.time||''}">${x.win?'V':(x.code==='NC'||x.code==='DRAW')?'–':'D'}</span>`).join('')}</div>
+      <div class="hint" style="margin-top:6px">Últimas ${S.n}: <b>${s.wins}V ${s.losses}D${s.nc?' '+s.nc+'NC':''}</b> · ${s.finishes} vitórias por KO/SUB · média <b>${fmt(s.avg_rounds)} rounds</b> por luta${s.streak>1?` · 🔥 ${s.streak} vitórias seguidas`:''}</div>
+    </div></div>`;
+}
+function renderFight(m){
+  const f=m.fight,A=m.a,B=m.b,o=m.odds,[fa,fb]=f.fighters;
+  let html=`<div class="card"><h3>👤 Lutadores</h3><div class="prof">${profCard(A,fa)}${profCard(B,fb)}</div></div>`;
+  if(o){
+    const ou=o.rounds_ou; const over=S=>S.fights.filter(x=>x.rounds_done>ou).length;
+    html+=`<div class="card"><h3>📈 Linha da casa (${o.provider||''})</h3><div class="odds">
+      <div class="o"><span class="hint">${fa.name}</span><b>${o.ml_a>0?'+':''}${o.ml_a??'–'}</b></div>
+      <div class="o"><span class="hint">${fb.name}</span><b>${o.ml_b>0?'+':''}${o.ml_b??'–'}</b></div>
+      ${ou?`<div class="o"><span class="hint">Over/Under rounds</span><b>${ou}</b><span class="hint">over ${o.over_odds>0?'+':''}${o.over_odds} · under ${o.under_odds>0?'+':''}${o.under_odds}</span></div>
+      <div class="o"><span class="hint">Lutas de ${fa.short||fa.name} que passaram de ${ou}</span><b class="pct ${pctCls(100*over(A)/A.n)}">${over(A)}/${A.n}</b></div>
+      <div class="o"><span class="hint">Lutas de ${fb.short||fb.name} que passaram de ${ou}</span><b class="pct ${pctCls(100*over(B)/B.n)}">${over(B)}/${B.n}</b></div>`:''}
+    </div><div class="hint" style="margin-top:8px">Moneyline americano: negativo = favorito (−200 → aposta 200 pra ganhar 100), positivo = azarão.</div></div>`;
+  }
+  // frequências lado a lado
+  for(let gi=0;gi<A.frequencies.length;gi++){
+    const ga=A.frequencies[gi],gb=B.frequencies[gi];
+    html+=`<div class="card"><h3>${ga.group} — em quantas das últimas lutas?</h3><div class="cmp">
+      <div class="hd">${fa.name}</div><div></div><div class="hd" style="text-align:right">${fb.name}</div>`;
+    for(let i=0;i<ga.items.length;i++){const a=ga.items[i],b=gb.items[i];
+      const dots=it=>`<div class="dots">${Array.from({length:it.n},(_,k)=>`<i class="${k<it.hits?'on':''}"></i>`).join('')}</div>`;
+      html+=`<div class="v"><span class="pct ${pctCls(a.pct)}">${a.pct==null?'–':a.pct+'%'}</span><span class="hits">${a.hits}/${a.n}</span>${dots(a)}</div><div class="lbl">${a.label}</div>
+             <div class="v r"><span class="pct ${pctCls(b.pct)}">${b.pct==null?'–':b.pct+'%'}</span><span class="hits">${b.hits}/${b.n}</span>${dots(b)}</div>`;}
+    html+='</div></div>';
+  }
+  // gráficos
+  html+=`<div class="card" id="ch_${f.id}"><h3>📊 Luta a luta <span class="hint" style="text-transform:none;letter-spacing:0">· escolha a estatística e a linha</span></h3>
+    <div class="statsel"><span class="hint">Estatística:</span>${STATS.map(([k,l])=>`<button class="chip ${state.stat===k?'on':''}" data-stat="${k}">${l}</button>`).join('')}
+      <span style="flex:1"></span><span class="hint">Linha:</span><input type="number" step="0.5" id="line_${f.id}" style="width:90px;padding:6px;background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:8px"></div>
+    <div class="two" id="charts_${f.id}"></div>
+    <div class="hint" style="margin-top:8px">Barra = valor em cada uma das últimas lutas (mais antiga → mais recente). <span style="color:var(--acc)">Verde</span> passou da linha, <span style="color:var(--red)">vermelho</span> não, cinza = sem estatística (luta antiga/fora do UFC).</div></div>`;
+  // tabela
+  const tb=(S,name)=>`<div><h4>${name}</h4><table><tr><th>Data</th><th></th><th>Adversário</th><th>Método</th><th class="num">R</th><th class="num">Tempo</th><th class="num">Golpes</th><th class="num">Sofridos</th><th class="num">Quedas</th><th class="num">KD</th><th class="num">Ctrl</th></tr>
+    ${S.fights.map(x=>`<tr><td>${dshort(x.date)}</td><td><span class="res ${x.win?'V':'D'}">${x.win?'V':(x.code==='NC'||x.code==='DRAW')?'–':'D'}</span></td><td>${x.opp}<br><small class="hint">${x.event||''}</small></td><td>${x.method}</td><td class="num">${x.round}</td><td class="num">${x.time||''}</td><td class="num">${fmt(x.ss)}</td><td class="num">${fmt(x.opp_ss)}</td><td class="num">${fmt(x.td)}</td><td class="num">${fmt(x.kd)}</td><td class="num">${x.ctrl_min!=null?x.ctrl_min+'m':'–'}</td></tr>`).join('')}</table></div>`;
+  html+=`<div class="card"><h3>📋 Últimas lutas</h3><div class="two">${tb(A,fa.name)}${tb(B,fb.name)}</div></div>`;
+  return html;
+}
+function chart(vals,line,log){
+  const vv=vals.map(v=>v==null?0:v); const mx=Math.max(...vv,line+1,1);
+  const L=[...log].reverse();
+  const bars=[...vals].reverse().map((v,i)=>{const x=L[i];const tip=`${dshort(x.date)} vs ${x.opp}: ${v==null?'sem dado':v}`;
+    return `<i class="${v==null?'z':v>line?'':'no'}" style="height:${Math.max(6,(v||0)/mx*100)}%" title="${tip}"><b>${v==null?'?':(Number.isInteger(v)?v:(+v).toFixed(1))}</b></i>`}).join('');
+  const labels=`<div class="clab">${L.map(x=>`<span title="${x.opp}">${x.opp_flag?`<img src="${x.opp_flag}" style="width:18px;height:12px;object-fit:cover" onerror="this.style.display='none'"><br>`:''}${x.opp.split(' ').slice(-1)[0].slice(0,8)}</span>`).join('')}</div>`;
+  return `<div><div class="chart" style="height:80px">${bars}<div class="ln" style="bottom:${line/mx*100}%"></div></div>${labels}</div>`;
+}
+function renderCharts(box,m){
+  const f=m.fight,stat=state.stat; const line=state.lines[stat]??DEF_LINE[stat]; box.querySelector('#line_'+f.id).value=line;
+  const one=(S,fx)=>{const vals=S.fights.map(x=>x[stat]); const have=vals.filter(v=>v!=null); const hits=have.filter(v=>v>line).length; const st=S.stats[stat]||{};
+    return `<div><h4>${fx.name} <span class="pct ${pctCls(have.length?100*hits/have.length:0)}" style="font-size:20px;margin-left:8px">${hits}/${have.length}</span> <span class="hint">acima de ${line} · média ${fmt(st.avg)} · linha segura ${st.safe8!=null?st.safe8:'–'}</span></h4>${chart(vals,line,S.fights)}</div>`};
+  box.querySelector('#charts_'+f.id).innerHTML=one(m.a,f.fighters[0])+one(m.b,f.fighters[1]);
+}
+function bindCharts(box,m){
+  const c=box.querySelector('#ch_'+m.fight.id); if(!c) return; renderCharts(box,m);
+  c.querySelectorAll('[data-stat]').forEach(b=>b.onclick=()=>{state.stat=b.dataset.stat;c.querySelectorAll('[data-stat]').forEach(x=>x.classList.toggle('on',x.dataset.stat===state.stat));renderCharts(box,m);});
+  box.querySelector('#line_'+m.fight.id).onchange=e=>{state.lines[state.stat]=+e.target.value;renderCharts(box,m);};
+}
+async function loadBest(){
+  $('#list').innerHTML='<div class="loading">⏳ Analisando todos os lutadores do card… (primeira vez pode levar 1–2 min)</div>';
+  state.best=await fetch('/api/ufc/best/'+state.ev).then(r=>r.json()).catch(()=>null); renderBest();
+}
+function renderBest(){
+  const b=state.best; if(!b){$('#list').innerHTML='<div class="empty">Erro ao carregar.</div>';return}
+  let html=`<div class="lghead">⭐ As melhores tendências do ${b.event.name} <span class="hint" style="text-transform:none;letter-spacing:0">· o que se repetiu em ≥80% das últimas lutas (duração, golpes, vitórias de favoritos)</span></div>`;
+  if(!b.picks.length) html+='<div class="empty">Nenhuma tendência forte encontrada (ou o evento já acabou).</div>';
+  b.picks.forEach((p,i)=>{
+    if(p.kind==='fight'){
+      html+=`<div class="pick"><div><div class="rank">#${i+1} · ${p.segment||''} · ${p.weight}</div><div class="who"><img class="h" src="${p.a_head}" onerror="this.style.visibility='hidden'"> <img class="h" src="${p.b_head}" onerror="this.style.visibility='hidden'"> ${p.matchup}<small>mercado da luta (os dois lutadores)</small></div></div>
+        <div class="mk">${p.label}<small>${p.a_name}: ${p.a_hits}/${p.a_n} · ${p.b_name}: ${p.b_hits}/${p.b_n}</small></div>
+        <div class="hr pct ${pctCls(p.pct)}">${p.pct}%<small>${p.hits}/${p.n}</small></div>
+        <div class="mini">${p.log.map(x=>fmt(x.v)).join(' · ')}<br>${p.log_b.map(x=>fmt(x.v)).join(' · ')}<br><span class="hint">rounds de duração de cada luta</span></div></div>`;
+    }else{
+      const vals=p.log.map(x=>x.v);
+      html+=`<div class="pick"><div><div class="rank">#${i+1} · ${p.segment||''} · ${p.weight}</div><div class="who"><img class="h" src="${p.head}" onerror="this.style.visibility='hidden'"> ${p.fighter}<small>${p.matchup}</small></div></div>
+        <div class="mk">${p.label}<small>${p.avg!=null?'média '+p.avg+' por luta':'últimas lutas'}</small></div>
+        <div class="hr pct ${pctCls(p.pct)}">${p.pct}%<small>${p.hits}/${p.n}</small></div>
+        ${p.line!=null?chart(vals,p.line,p.log.map(x=>({date:x.date,opp:x.opp}))):`<div class="seq">${p.log.map(x=>`<span class="${x.v?'W':'L'}" title="${dshort(x.date)} vs ${x.opp}">${x.v?'V':'D'}</span>`).join('')}</div>`}</div>`;
+    }
+  });
+  $('#list').innerHTML=html;
+}
+$('#modeGames').onclick=()=>setMode('games');$('#modeBest').onclick=()=>setMode('best');
+$('#evSel').onchange=e=>{state.ev=+e.target.value;loadCard().then(()=>{if(state.mode==='best')loadBest();})};
+loadEvents();
+</script>
+</body>
+</html>
