@@ -204,8 +204,10 @@ def fetch_box(gid):
                 d["tpm"], d["tpa"] = _made_att(s["displayValue"])
             elif s["name"] == "fieldGoalsMade-fieldGoalsAttempted":
                 d["fgm"], d["fga"] = _made_att(s["displayValue"])
-            elif s["name"] in ("totalRebounds", "assists", "steals", "blocks", "turnovers", "freeThrowsMade-freeThrowsAttempted"):
-                d[s["name"]] = _num(s["displayValue"].split("-")[0]) if "-" in s["displayValue"] else _num(s["displayValue"])
+            elif s["name"] == "freeThrowsMade-freeThrowsAttempted":
+                d["ftm"], d["fta"] = _made_att(s["displayValue"])
+            elif s["name"] in ("totalRebounds", "offensiveRebounds", "assists", "steals", "blocks", "turnovers", "fouls", "pointsInPaint", "fastBreakPoints"):
+                d[s["name"]] = _num(s["displayValue"])
     for t in data.get("boxscore", {}).get("players", []):
         lst = []
         for st in t.get("statistics", []):
@@ -278,6 +280,17 @@ TEAM_RULES = [
     ("1º quarto", [(f"Over {l} no 1ºQ (jogo)", (lambda l: lambda g: g["q1_total"] > l)(l)) for l in (52.5, 55.5, 58.5, 61.5)]),
     ("Bolas de 3", [(f"Time {int(l + .5)}+ bolas de 3", (lambda l: lambda g: g["tpm_for"] > l)(l)) for l in (10.5, 12.5, 14.5, 16.5, 18.5)]
                    + [(f"Over {l} bolas de 3 (jogo)", (lambda l: lambda g: g["tpm_total"] > l)(l)) for l in (22.5, 25.5, 28.5)]),
+    ("Arremessos do time", [(f"Time {int(l + .5)}+ bolas de 3 tentadas", (lambda l: lambda g: g["tpa_for"] > l)(l)) for l in (29.5, 34.5, 39.5, 44.5)]
+                            + [(f"Time {int(l + .5)}+ bolas de 2 convertidas", (lambda l: lambda g: g["twpm_for"] > l)(l)) for l in (19.5, 24.5, 29.5)]
+                            + [(f"Time {int(l + .5)}+ bolas de 2 tentadas", (lambda l: lambda g: g["twpa_for"] > l)(l)) for l in (39.5, 44.5, 49.5)]
+                            + [(f"Time {int(l + .5)}+ arremessos convertidos", (lambda l: lambda g: g["fgm_for"] > l)(l)) for l in (37.5, 40.5, 43.5)]),
+    ("Lances livres", [(f"Time {int(l + .5)}+ LL convertidos", (lambda l: lambda g: g["ftm_for"] > l)(l)) for l in (12.5, 15.5, 18.5, 21.5)]
+                      + [(f"Time {int(l + .5)}+ LL tentados", (lambda l: lambda g: g["fta_for"] > l)(l)) for l in (17.5, 20.5, 24.5, 28.5)]
+                      + [(f"Over {l} LL convertidos (jogo)", (lambda l: lambda g: g["ftm_total"] > l)(l)) for l in (29.5, 34.5, 39.5)]),
+    ("Rebotes e assistências", [(f"Time {int(l + .5)}+ rebotes", (lambda l: lambda g: g["reb_for"] > l)(l)) for l in (39.5, 42.5, 45.5, 48.5)]
+                               + [(f"Over {l} rebotes (jogo)", (lambda l: lambda g: g["reb_total"] > l)(l)) for l in (84.5, 89.5, 94.5)]
+                               + [(f"Time {int(l + .5)}+ assistências", (lambda l: lambda g: g["ast_for"] > l)(l)) for l in (21.5, 24.5, 27.5, 30.5)]
+                               + [(f"Over {l} assistências (jogo)", (lambda l: lambda g: g["ast_total"] > l)(l)) for l in (44.5, 49.5, 54.5)]),
     ("Resultado", [("Venceu", lambda g: g["win"]), ("Venceu por 5+", lambda g: g["margin"] >= 5), ("Venceu por 10+", lambda g: g["margin"] >= 10),
                    ("Jogo decidido por ≤5", lambda g: abs(g["margin"]) <= 5)]),
 ]
@@ -298,7 +311,14 @@ def game_metrics(row, team_id):
         q1_for=q[0] if q else 0, q1_total=(q[0] if q else 0) + (oq[0] if oq else 0),
         h1_for=h1, h1_against=oh1, h1_total=h1 + oh1,
         tpm_for=t.get("tpm", 0), tpm_against=o.get("tpm", 0), tpm_total=t.get("tpm", 0) + o.get("tpm", 0),
-        reb_for=t.get("totalRebounds", 0), ast_for=t.get("assists", 0),
+        tpa_for=t.get("tpa", 0), tpa_total=t.get("tpa", 0) + o.get("tpa", 0),
+        fgm_for=t.get("fgm", 0), fga_for=t.get("fga", 0),
+        twpm_for=t.get("fgm", 0) - t.get("tpm", 0), twpa_for=t.get("fga", 0) - t.get("tpa", 0),
+        ftm_for=t.get("ftm", 0), fta_for=t.get("fta", 0), ftm_total=t.get("ftm", 0) + o.get("ftm", 0), fta_total=t.get("fta", 0) + o.get("fta", 0),
+        reb_for=t.get("totalRebounds", 0), reb_against=o.get("totalRebounds", 0), reb_total=t.get("totalRebounds", 0) + o.get("totalRebounds", 0), oreb_for=t.get("offensiveRebounds", 0),
+        ast_for=t.get("assists", 0), ast_total=t.get("assists", 0) + o.get("assists", 0),
+        stl_for=t.get("steals", 0), blk_for=t.get("blocks", 0), to_for=t.get("turnovers", 0), fouls_for=t.get("fouls", 0),
+        paint_for=t.get("pointsInPaint", 0), fb_for=t.get("fastBreakPoints", 0),
     )
 
 
@@ -420,7 +440,11 @@ def summarize_team(rows, team_id, n=10, include_pre=False):
     averages = {k: dict(label=lbl, value=avg(k)) for k, lbl in [
         ("pts_for", "Pontos do time"), ("pts_against", "Pontos sofridos"), ("total", "Total do jogo"),
         ("h1_for", "Pontos 1ºT (time)"), ("h1_total", "Total 1ºT"), ("q1_total", "Total 1ºQ"),
-        ("tpm_for", "Bolas de 3 (time)"), ("tpm_total", "Bolas de 3 (jogo)"), ("reb_for", "Rebotes"), ("ast_for", "Assistências"), ("margin", "Saldo médio")]}
+        ("tpm_for", "Bolas de 3 (time)"), ("tpa_for", "Bolas de 3 tentadas"), ("tpm_total", "Bolas de 3 (jogo)"),
+        ("twpm_for", "Bolas de 2 convertidas"), ("twpa_for", "Bolas de 2 tentadas"), ("fgm_for", "Arremessos convertidos"), ("fga_for", "Arremessos tentados"),
+        ("ftm_for", "LL convertidos"), ("fta_for", "LL tentados"),
+        ("reb_for", "Rebotes"), ("oreb_for", "Rebotes ofensivos"), ("ast_for", "Assistências"), ("stl_for", "Roubos"), ("blk_for", "Tocos"), ("to_for", "Turnovers"), ("fouls_for", "Faltas"),
+        ("paint_for", "Pontos no garrafão"), ("fb_for", "Pontos de contra-ataque"), ("margin", "Saldo médio")]}
     freqs = []
     for group, rules in TEAM_RULES:
         items = [dict(label=l, hits=sum(1 for g in games if fn(g)), n=N, pct=round(100 * sum(1 for g in games if fn(g)) / N) if N else None) for l, fn in rules]
