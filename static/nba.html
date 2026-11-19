@@ -210,7 +210,7 @@ const $=s=>document.querySelector(s);
 const fmt=n=>n==null?'–':(Number.isInteger(n)?n:(+n).toFixed(1));
 const hhmm=iso=>new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 const pctCls=p=>p>=70?'hi':p>=50?'mid':'lo';
-let state={plStat:'pts',plLines:{},lineMode:'safe8',lineAll:null,lineups:{},games:[],mode:'games',markets:[],group:null,market:'0_2',thr:70,screener:null,open:null,cache:{},pre:0,pl:{}};
+let state={tStat:'total',tLines:{},plStat:'pts',plLines:{},lineMode:'safe8',lineAll:null,lineups:{},games:[],mode:'games',markets:[],group:null,market:'0_2',thr:70,screener:null,open:null,cache:{},pre:0,pl:{}};
 
 async function loadMarkets(){state.markets=await (await fetch('/api/nba/markets')).json();state.group=state.markets[0].group;renderMkBar();}
 async function fetchRetry(url,tries=4){
@@ -356,6 +356,11 @@ function renderGame(m){
   const iA=insights(A),iH=insights(H);
   if(iA.length||iH.length) html+=`<div class="card"><h3>🔥 O que mais se repete (≥80%)</h3><div class="ins">${iA.map(s=>`<span class="away">${g.away_abbr}: ${s}</span>`).join('')}${iH.map(s=>`<span>${g.home_abbr}: ${s}</span>`).join('')}</div></div>`;
 
+  // gráfico do time por jogo
+  html+=`<div class="card" id="tchart_${g.id}"><h3>📊 Time jogo a jogo — últimos ${m.history_n} <span class="hint" style="text-transform:none;letter-spacing:0">· escolha a estatística e a linha</span></h3>
+    <div class="statsel"><span class="hint">Estatística:</span>${TEAM_STATS.map(([k,l])=>`<button class="chip ${state.tStat===k?'on':''}" data-ts="${k}">${l}</button>`).join('')}
+      <span style="flex:1"></span><span class="hint">Linha:</span><input type="number" step="0.5" id="tline_${g.id}" style="width:90px;padding:6px;background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:8px"></div>
+    <div class="two" id="tcharts_${g.id}"></div></div>`;
   // jogadores (gráficos estilo hit-rate)
   html+=`<div class="card" id="plcard_${g.id}"><h3>👤 Jogadores — últimos 10 jogos <span class="hint" style="text-transform:none;letter-spacing:0">· clique no jogador pra ver jogo a jogo</span></h3>
     <div class="statsel"><span class="hint">Estatística:</span>${[['pts','Pontos'],['reb','Rebotes'],['ast','Assistências'],['tpm','Bolas de 3'],['pra','P+R+A'],['stl','Roubos'],['blk','Tocos'],['pf','Faltas'],['ftm','LL convertidos'],['fta','LL tentados'],['tpa','3PT tentadas'],['twpm','2PT convertidas'],['twpa','2PT tentadas'],['fgm','Arremessos conv.'],['fga','Arremessos tent.']].map(([k,l])=>`<button class="chip ${state.plStat===k?'on':''}" data-stat="${k}">${l}</button>`).join('')}
@@ -385,6 +390,17 @@ function renderGame(m){
     ${s.games.map(x=>`<tr><td>${x.date.slice(5).split('-').reverse().join('/')}</td><td><span class="res ${x.win?'V':'D'}">${x.win?'V':'D'}</span></td><td>${x.home?'vs':'@'} ${x.opponent}</td><td class="num">${x.score}</td><td class="num">${fmt(x.total)}</td><td class="num">${fmt(x.h1_total)}</td><td class="num">${fmt(x.q1_total)}</td><td class="num">${fmt(x.tpm_for)}</td><td class="hint">${x.stype||''}</td></tr>`).join('')}</table></div>`;
   html+=`<div class="card"><h3>📋 Últimos jogos</h3><div class="two">${gt(A,g.away_name)}${gt(H,g.home_name)}</div></div>`;
   return html;
+}
+const TEAM_STATS=[['total','Total do jogo'],['pts_for','Pontos do time'],['pts_against','Pontos sofridos'],['h1_total','Total 1ºT'],['h1_for','Pts 1ºT time'],['q1_total','Total 1ºQ'],['tpm_for','3PT conv.'],['tpa_for','3PT tent.'],['tpm_total','3PT jogo'],['twpm_for','2PT conv.'],['twpa_for','2PT tent.'],['fgm_for','FG conv.'],['fga_for','FG tent.'],['ftm_for','LL conv.'],['fta_for','LL tent.'],['ftm_total','LL jogo'],['reb_for','Rebotes'],['reb_total','Rebotes jogo'],['oreb_for','Reb. ofensivos'],['ast_for','Assistências'],['ast_total','Assist. jogo'],['stl_for','Roubos'],['blk_for','Tocos'],['to_for','Turnovers'],['fouls_for','Faltas'],['paint_for','Pts garrafão'],['fb_for','Pts contra-ataque']];
+const T_DEF={total:225.5,pts_for:112.5,pts_against:112.5,h1_total:112.5,h1_for:56.5,q1_total:56.5,tpm_for:12.5,tpa_for:34.5,tpm_total:25.5,twpm_for:24.5,twpa_for:44.5,fgm_for:40.5,fga_for:88.5,ftm_for:16.5,fta_for:21.5,ftm_total:33.5,reb_for:43.5,reb_total:88.5,oreb_for:10.5,ast_for:25.5,ast_total:50.5,stl_for:7.5,blk_for:4.5,to_for:13.5,fouls_for:18.5,paint_for:48.5,fb_for:13.5};
+function tchart(S,name,stat,line){
+  const vals=S.games.map(x=>x[stat]??0); if(!vals.length) return `<div><h4>${name}</h4><div class="hint">sem jogos</div></div>`;
+  const hits=vals.filter(v=>v>line).length; const log=S.games.map(x=>({date:x.date,opp:x.opponent,home:x.home,stype:x.stype}));
+  return `<div><h4>${name} <span class="pct ${pctCls(100*hits/vals.length)}" style="font-size:20px;margin-left:8px">${hits}/${vals.length}</span> <span class="hint">acima de ${line} · média ${fmt(vals.reduce((a,b)=>a+b,0)/vals.length)}</span></h4>${chart(vals,line,log)}</div>`;
+}
+function renderTCharts(box,m){
+  const g=m.game,stat=state.tStat; const line=state.tLines[stat]??T_DEF[stat]; box.querySelector('#tline_'+g.id).value=line;
+  box.querySelector('#tcharts_'+g.id).innerHTML=tchart(m.away,g.away_name,stat,line)+tchart(m.home,g.home_name,stat,line);
 }
 const STAT_LBL={pts:'pontos',reb:'rebotes',ast:'assistências',tpm:'bolas de 3',pra:'P+R+A',stl:'roubos',blk:'tocos',to:'turnovers',pf:'faltas',ftm:'lances livres convertidos',fta:'lances livres tentados',tpa:'bolas de 3 tentadas',twpm:'bolas de 2 convertidas',twpa:'bolas de 2 tentadas',fgm:'arremessos convertidos',fga:'arremessos tentados'};
 function defLine(p,stat){
@@ -436,6 +452,8 @@ function bindPlayerRows(el,m){
   });
 }
 function bindPlayers(box,m){
+  const tc=box.querySelector('#tchart_'+m.game.id);
+  if(tc){renderTCharts(box,m);tc.querySelectorAll('[data-ts]').forEach(b=>b.onclick=()=>{state.tStat=b.dataset.ts;tc.querySelectorAll('[data-ts]').forEach(x=>x.classList.toggle('on',x.dataset.ts===state.tStat));renderTCharts(box,m);});box.querySelector('#tline_'+m.game.id).onchange=e=>{state.tLines[state.tStat]=+e.target.value;renderTCharts(box,m);};}
   renderPlist(m,m.away,'a'); renderPlist(m,m.home,'h');
   const card=box.querySelector('#plcard_'+m.game.id); if(!card) return;
   card.querySelectorAll('[data-stat]').forEach(b=>b.onclick=()=>{state.plStat=b.dataset.stat;card.querySelectorAll('[data-stat]').forEach(x=>x.classList.toggle('on',x.dataset.stat===state.plStat));renderPlist(m,m.away,'a');renderPlist(m,m.home,'h');});
